@@ -126,3 +126,8 @@ Extracted Document Details:
 ✅ Data saved to extracted_passport_details.xlsx with validity status: Invalid
 
 why is it showing invalid when the the details present in DATABASE_DOCUMENTS.xlsx is same as the texts extracted from the document . it should be valid .
+
+
+
+
+curr 1.py for every document under process i want the extracted data to be verified against our DATABASE_DOCUMENTS.xlsx file. for example , if i have uploaded a Driving license , then the extracted text will contain the name , dl no , gender, DOB etc, so all these information needs to be verified with out DL_DATA sheet from DATABASE_DOCUMENTS.xlsx file. and if the data extracted matches our dataset then extracted_passport_details.xlsx will update that the entry is valid in another cell. if the dl no or name or any other field is different than the dataset we have in DATABASE_DOCUMENTS.xlsx file then it should update it with invalid . provide full code in chat with all the key credentials.
