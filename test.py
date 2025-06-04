@@ -9,16 +9,29 @@ from openai import AzureOpenAI
 import pandas as pd
 from openpyxl import load_workbook
 import re
-
+from flask import Flask, request, jsonify
+from werkzeug.utils import secure_filename
+import uuid
+from flask_cors import CORS  # Add this import at the top of test.py
 # === CONFIGURATION ===
 connection_string = "DefaultEndpointsProtocol=https;AccountName=doctrainings;AccountKey=nOFJZry+p3BbM1C+fxP5YAJBNJj/Odebs8cgfbBwk9Nu83MSsqcDC9FLpY0yxJrHZn2JC/bEpOoE+AStz+fyLg==;EndpointSuffix=core.windows.net"
 container_name = "kyc-image"
 
 def normalize_path(path):
     return os.path.normpath(path)
+# === FLASK APP SETUP ===
+app = Flask(__name__)
+CORS(app)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 
-file_path = normalize_path(r"C:\Users\hp\Desktop\Coforge\kyc\Document_Dataset\Document_Dataset\Sorted Passport\Jonathan.png")
-file_name = os.path.basename(file_path)
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# Input documents - now accepting three files
+passport_path = normalize_path(r"C:\Users\hp\Desktop\Coforge\kyc\Document_Dataset\Document_Dataset\Sorted Passport\Lynn Passport.png")
+dl_path = normalize_path(r"C:\Users\hp\Desktop\Coforge\kyc\Document_Dataset\Document_Dataset\Sorted DL\Lynn DL.png")
+id_path = normalize_path(r"C:\Users\hp\Desktop\Coforge\kyc\Document_Dataset\Document_Dataset\Sorted ID\Lynn ID.png")
+
 form_recognizer_endpoint = "https://mypoc.cognitiveservices.azure.com/"
 form_recognizer_key = "d499d3bcebba45058b02c228e0ef3cf4"
 
@@ -104,24 +117,28 @@ def format_date_to_ddmmyyyy(date_str):
 
 # === STEP 1: Upload Image to Blob Storage ===
 def upload_to_blob(file_path, container_name, connection_string):
-    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-    container_client = blob_service_client.get_container_client(container_name)
-    if not container_client.exists():
-        container_client.create_container()
-    file_name = os.path.basename(file_path)
-    blob_client = container_client.get_blob_client(file_name)
-    with open(file_path, "rb") as data:
-        blob_client.upload_blob(data, overwrite=True)
-    print(f"{file_name} uploaded to container '{container_name}'.")
-    sas_token = generate_blob_sas(
-        account_name=blob_service_client.account_name,
-        container_name=container_name,
-        blob_name=file_name,
-        account_key=blob_service_client.credential.account_key,
-        permission=BlobSasPermissions(read=True),
-        expiry=datetime.utcnow() + timedelta(hours=1)
-    )
-    return f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{file_name}?{sas_token}"
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        container_client = blob_service_client.get_container_client(container_name)
+        if not container_client.exists():
+            container_client.create_container()
+        file_name = os.path.basename(file_path)
+        blob_client = container_client.get_blob_client(file_name)
+        with open(file_path, "rb") as data:
+            blob_client.upload_blob(data, overwrite=True)
+        print(f"{file_name} uploaded to container '{container_name}'.")
+        sas_token = generate_blob_sas(
+            account_name=blob_service_client.account_name,
+            container_name=container_name,
+            blob_name=file_name,
+            account_key=blob_service_client.credential.account_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=datetime.utcnow() + timedelta(hours=1)
+        )
+        return f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{file_name}?{sas_token}", True
+    except Exception as e:
+        print(f"Error uploading to blob storage: {e}")
+        return None, False
 
 # === STEP 2: Extract OCR Text ===
 def extract_ocr_text(blob_url, endpoint, key):
@@ -131,9 +148,18 @@ def extract_ocr_text(blob_url, endpoint, key):
     return "\n".join([line.content for page in result.pages for line in page.lines])
 
 # === STEP 3: Determine Document Type ===
-def determine_document_type(full_text):
-    """Determine document type based on OCR text content"""
+def determine_document_type(full_text, file_path):
+    """Determine document type based on OCR text content or file path"""
     text_lower = full_text.lower()
+    file_name = os.path.basename(file_path).lower()
+    
+    # Check file path for hints if OCR text is ambiguous
+    if 'passport' in file_name:
+        return "passport"
+    elif 'dl' in file_name or 'driving' in file_name or 'license' in file_name:
+        return "driving_license"
+    elif 'id' in file_name or 'identity' in file_name:
+        return "identity_card"
     
     # Check for passport indicators
     passport_indicators = ['passport', 'passeport', 'republic', 'type p', 'passport no', 'passport number']
@@ -502,7 +528,9 @@ def create_excel_with_headers(file_name):
         "Address/Place of Birth",
         "Date of Expiration",
         "Sex",
-        "Verification Status"
+        "Verification Status",
+        "Documents Uploaded",
+        "KYC Completed"
     ]
     
     # Create empty DataFrame with specified columns
@@ -514,7 +542,7 @@ def create_excel_with_headers(file_name):
     
     return df
 
-def save_to_excel(data, doc_type, verification_status, verification_message, file_name):
+def save_to_excel(data, doc_type, verification_status, verification_message, file_name, documents_uploaded):
     """Save extracted data to Excel file with DD/MM/YYYY date format"""
     
     # Check if file exists, if not create it with headers
@@ -539,6 +567,11 @@ def save_to_excel(data, doc_type, verification_status, verification_message, fil
                          data.get("ID Expiry", "-")))
     )
     
+    # Determine KYC Completed status
+    kyc_completed = "NO"
+    if documents_uploaded == "YES" and verification_status == "VALID":
+        kyc_completed = "YES"
+    
     # Create record with only the specified columns
     record = {
         "Passport Number": data.get("Passport Number", "-"),
@@ -550,7 +583,9 @@ def save_to_excel(data, doc_type, verification_status, verification_message, fil
         "Address/Place of Birth": address_place_birth,
         "Date of Expiration": date_of_expiration,
         "Sex": data.get("Sex", "-"),
-        "Verification Status": verification_status
+        "Verification Status": verification_status,
+        "Documents Uploaded": documents_uploaded,
+        "KYC Completed": kyc_completed
     }
     
     # Create DataFrame with the new record
@@ -560,13 +595,32 @@ def save_to_excel(data, doc_type, verification_status, verification_message, fil
         # Read existing file
         existing_df = pd.read_excel(file_name)
         
-        # Append new record
-        updated_df = pd.concat([existing_df, new_df], ignore_index=True)
+        # Check if we should update an existing record or add a new one
+        if doc_type == "passport" and record["Passport Number"] != "-":
+            # Find existing record with same passport number
+            mask = existing_df["Passport Number"] == record["Passport Number"]
+        elif doc_type == "driving_license" and record["Driving License Number"] != "-":
+            # Find existing record with same DL number
+            mask = existing_df["Driving License Number"] == record["Driving License Number"]
+        elif doc_type == "identity_card" and record["Identity Card Number"] != "-":
+            # Find existing record with same ID number
+            mask = existing_df["Identity Card Number"] == record["Identity Card Number"]
+        else:
+            mask = None
+        
+        if mask is not None and mask.any():
+            # Update existing record
+            existing_df.loc[mask, list(record.keys())] = list(record.values())
+            updated_df = existing_df
+            print("✅ Updated existing record in Excel file")
+        else:
+            # Append new record
+            updated_df = pd.concat([existing_df, new_df], ignore_index=True)
+            print("✅ Added new record to Excel file")
         
         # Save updated DataFrame
         updated_df.to_excel(file_name, index=False)
         
-        print(f"✅ Data appended to {file_name} with verification status: {verification_status}")
         print(f"📊 Total records in file: {len(updated_df)}")
         
     except Exception as e:
@@ -575,25 +629,29 @@ def save_to_excel(data, doc_type, verification_status, verification_message, fil
         new_df.to_excel(file_name, index=False)
         print(f"✅ Created new file with current record: {file_name}")
 
-# === MAIN ===
-def main():
+# === PROCESS SINGLE DOCUMENT ===
+def process_document(file_path, database_sheets, excel_file="extracted_passport_details.xlsx"):
+    """Process a single document and update the Excel file"""
     try:
-        # Load database sheets
-        print("Loading database...")
-        database_sheets = load_database_sheets()
-        if not database_sheets:
-            print("❌ Failed to load database. Exiting.")
-            return
+        # Upload document to blob storage
+        print(f"\nProcessing document: {os.path.basename(file_path)}")
+        blob_url, upload_success = upload_to_blob(file_path, container_name, connection_string)
+        documents_uploaded = "YES" if upload_success else "NO"
         
-        # Upload and process document
-        blob_url = upload_to_blob(file_path, container_name, connection_string)
+        if not upload_success:
+            print("❌ Failed to upload document to blob storage")
+            # Save record with failed upload status
+            save_to_excel({}, "", "INVALID", "Document upload failed", excel_file, documents_uploaded)
+            return False, "Document upload failed"
+        
+        # Extract OCR text
         ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
         
         print("\n--- OCR Text ---")
         print(ocr_text)
         
         # Determine document type
-        doc_type = determine_document_type(ocr_text)
+        doc_type = determine_document_type(ocr_text, file_path)
         print(f"\n--- Detected Document Type: {doc_type.upper()} ---")
         
         # Extract structured data based on document type
@@ -606,11 +664,143 @@ def main():
         display_results(structured_data, doc_type, verification_status, verification_message)
         
         # Save to Excel with verification results and DD/MM/YYYY date format
-        save_to_excel(structured_data, doc_type, verification_status, verification_message, "extracted_passport_details.xlsx")
+        save_to_excel(structured_data, doc_type, verification_status, verification_message, excel_file, documents_uploaded)
+        
+        return verification_status == "VALID", verification_message
+    
+    except Exception as e:
+        print(f"❌ Error processing document: {e}")
+        # Save error record if possible
+        save_to_excel({}, "", "ERROR", str(e), excel_file, "NO")
+        return False, str(e)
+# === MAIN ===
+def main():
+    try:
+        # Load database sheets
+        print("Loading database...")
+        database_sheets = load_database_sheets()
+        if not database_sheets:
+            print("❌ Failed to load database. Exiting.")
+            return
+        
+        # Process all three documents
+        documents = [
+            ("Passport", passport_path),
+            ("Driving License", dl_path),
+            ("Identity Card", id_path)
+        ]
+        
+        success_count = 0
+        for doc_name, doc_path in documents:
+            if os.path.exists(doc_path):
+                print(f"\n{'='*40}")
+                print(f"PROCESSING {doc_name.upper()}")
+                print(f"{'='*40}")
+                if process_document(doc_path, database_sheets):
+                    success_count += 1
+            else:
+                print(f"\n❌ {doc_name} document not found at path: {doc_path}")
+                # Save record for missing document
+                save_to_excel(
+                    {}, 
+                    doc_name.lower().replace(" ", "_"), 
+                    "INVALID", 
+                    f"Document not found at path: {doc_path}", 
+                    "extracted_passport_details.xlsx", 
+                    "NO"
+                )
+        
+        print(f"\nProcessing complete. Successfully processed {success_count} of {len(documents)} documents.")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        print("Please check your credentials and configuration.")
+        print(f"❌ Main process error: {e}")
+@app.route('/upload', methods=['POST'])
+def upload_files():
+    try:
+        if 'passport' not in request.files and 'license' not in request.files and 'id_card' not in request.files:
+            return jsonify({'error': 'No files uploaded'}), 400
 
+        results = {}
+        database_sheets = load_database_sheets()
+        validation_status = True
+        validation_messages = []
+        
+        # Process passport if uploaded
+        if 'passport' in request.files:
+            passport_file = request.files['passport']
+            if passport_file.filename != '' and allowed_file(passport_file.filename):
+                filename = f"passport_{uuid.uuid4().hex}.{passport_file.filename.rsplit('.', 1)[1].lower()}"
+                temp_path = os.path.join(os.getcwd(), filename)
+                passport_file.save(temp_path)
+                
+                success, verification_message = process_document(temp_path, database_sheets)
+                if success:
+                    passport_status = "VALID"
+                else:
+                    passport_status = "INVALID"
+                    validation_status = False
+                    validation_messages.append(f"Passport: {verification_message}")
+                
+                results['passport'] = {
+                    'status': passport_status,
+                    'message': verification_message
+                }
+                os.remove(temp_path)
+        
+        # Process driving license if uploaded
+        if 'license' in request.files:
+            license_file = request.files['license']
+            if license_file.filename != '' and allowed_file(license_file.filename):
+                filename = f"license_{uuid.uuid4().hex}.{license_file.filename.rsplit('.', 1)[1].lower()}"
+                temp_path = os.path.join(os.getcwd(), filename)
+                license_file.save(temp_path)
+                
+                success, verification_message = process_document(temp_path, database_sheets)
+                if success:
+                    license_status = "VALID"
+                else:
+                    license_status = "INVALID"
+                    validation_status = False
+                    validation_messages.append(f"Driving License: {verification_message}")
+                
+                results['license'] = {
+                    'status': license_status,
+                    'message': verification_message
+                }
+                os.remove(temp_path)
+        
+        # Process ID card if uploaded
+        if 'id_card' in request.files:
+            id_card_file = request.files['id_card']
+            if id_card_file.filename != '' and allowed_file(id_card_file.filename):
+                filename = f"id_{uuid.uuid4().hex}.{id_card_file.filename.rsplit('.', 1)[1].lower()}"
+                temp_path = os.path.join(os.getcwd(), filename)
+                id_card_file.save(temp_path)
+                
+                success, verification_message = process_document(temp_path, database_sheets)
+                if success:
+                    id_status = "VALID"
+                else:
+                    id_status = "INVALID"
+                    validation_status = False
+                    validation_messages.append(f"ID Card: {verification_message}")
+                
+                results['id_card'] = {
+                    'status': id_status,
+                    'message': verification_message
+                }
+                os.remove(temp_path)
+        
+        # Add overall validation status
+        results['overall_validation'] = {
+            'status': 'VALID' if validation_status else 'INVALID',
+            'messages': validation_messages if not validation_status else ["All documents are valid"]
+        }
+        
+        return jsonify(results), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 if __name__ == "__main__":
-    main()
+    # Run the Flask app
+    app.run(host='0.0.0.0', port=5000, debug=True)
