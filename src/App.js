@@ -293,12 +293,8 @@ const KYCPortal = () => {
             Please enter your credentials to continue
           </p>
           
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-800">
-              <strong>Login Credentials:</strong><br/>
-              Username: shlok<br/>
-              Password: 12345
-            </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 hidden">
+            {/* Login credentials UI removed for security */}
           </div>
 
           <input

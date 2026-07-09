@@ -8,9 +8,12 @@ from werkzeug.utils import secure_filename
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
-from openai import AzureOpenAI
+import google.generativeai as genai
+from dotenv import load_dotenv
 import pandas as pd
 import re
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -20,20 +23,17 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Azure Blob Storage
-connection_string = "DefaultEndpointsProtocol=https;AccountName=doctrainings;AccountKey=nOFJZry+p3BbM1C+fxP5YAJBNJj/Odebs8cgfbBwk9Nu83MSsqcDC9FLpY0yxJrHZn2JC/bEpOoE+AStz+fyLg==;EndpointSuffix=core.windows.net"
-container_name = "kyc-image"
+connection_string = os.environ.get("AZURE_BLOB_CONNECTION_STRING")
+container_name = os.environ.get("AZURE_BLOB_CONTAINER_NAME", "kyc-image")
 
 # Azure Form Recognizer
-form_recognizer_endpoint = "https://mypoc.cognitiveservices.azure.com/"
-form_recognizer_key = "d499d3bcebba45058b02c228e0ef3cf4"
+form_recognizer_endpoint = os.environ.get("AZURE_FORM_RECOGNIZER_ENDPOINT")
+form_recognizer_key = os.environ.get("AZURE_FORM_RECOGNIZER_KEY")
 
-# Azure OpenAI
-openai_client = AzureOpenAI(
-    api_key="Ff0YRHqouo7vFCicY6PNtP1mgr4wtwkc3fsvfdG7LU7cRU9b7rIkJQQJ99BEACYeBjFXJ3w3AAABACOGIM6j",
-    api_version="2024-02-01",
-    azure_endpoint="https://azuresearchopenapi.openai.azure.com/"
-)
-deployment_name = "gpt-4o-mini"
+# Google Gemini Configuration
+gemini_api_key = os.environ.get("GEMINI_API_KEY")
+if gemini_api_key:
+    genai.configure(api_key=gemini_api_key)
 
 # Database file path
 DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
@@ -165,7 +165,7 @@ def determine_document_type(full_text):
     else:
         return "identity_card"
 
-def extract_structured_fields(full_text, openai_client, deployment_name, doc_type):
+def extract_structured_fields(full_text, doc_type):
     if doc_type == "passport":
         prompt = f"""
 You are an assistant that extracts structured passport information from OCR text.
@@ -229,15 +229,21 @@ OCR Text:
 {full_text}
 """
 
-    response = openai_client.chat.completions.create(
-        model=deployment_name,
-        messages=[
-            {"role": "system", "content": "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.2
-    )
-    gpt_response = response.choices[0].message.content
+    # Using Gemini
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # Prepend the system instructions to the prompt
+    full_prompt = "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY.\n\n" + prompt
+    
+    try:
+        response = model.generate_content(
+            full_prompt,
+            generation_config=genai.types.GenerationConfig(temperature=0.2)
+        )
+        gpt_response = response.text
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        gpt_response = "{}"
     
     try:
         extracted_data = json.loads(gpt_response)
@@ -633,7 +639,7 @@ def process_document(file_path, document_id):
         }
         
         # Extract structured data based on document type
-        structured_data = extract_structured_fields(ocr_text, openai_client, deployment_name, doc_type)
+        structured_data = extract_structured_fields(ocr_text, doc_type)
         
         # Update status to verifying data
         document_status[document_id] = {
@@ -740,13 +746,13 @@ def get_alerts():
         return jsonify({'error': str(e)}), 500
 
 # === FRONTEND SERVING ===
-@app.route('/')
-def serve_index():
-    return send_from_directory('.', 'index.html')
-
+@app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('.', path)
+def serve(path):
+    if path != "" and os.path.exists(os.path.join(app.root_path, 'build', path)):
+        return send_from_directory(os.path.join(app.root_path, 'build'), path)
+    else:
+        return send_from_directory(os.path.join(app.root_path, 'build'), 'index.html')
 
 if __name__ == '__main__':
     # Create uploads directory if it doesn't exist

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coforge - KYC Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .header { background: white; padding: 1rem 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .logo { display: flex; align-items: center; }
+        .logo img { height: 80px; width: auto; }
+        .container { display: flex; min-height: calc(100vh - 80px); }
+        .sidebar { width: 280px; background: #1e3a5f; padding: 0; }
+        .nav-item { display: flex; align-items: center; padding: 1rem 1.5rem; color: #b8d4f0; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.1); transition: all 0.3s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(255,255,255,0.1); color: white; }
+        .nav-item.active { background: #ff6b35; color: white; }
+        .nav-icon { width: 20px; height: 20px; margin-right: 12px; opacity: 0.8; }
+        .main-content { flex: 1; padding: 2rem; }
+        .welcome-banner { background: #1e3a5f; color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
+        .welcome-title { font-size: 2rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .welcome-subtitle { font-size: 1.1rem; opacity: 0.9; }
+        .cards-grid { display: grid; gap: 1.5rem; grid-template-columns: 1fr; }
+        .card { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; color: #1e3a5f; }
+        .card-subtitle { color: #6b7280; font-size: 1rem; }
+        .upload-card .card-title { color: #3b82f6; }
+        .upload-page { display: none; background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .upload-form { display: flex; flex-direction: column; gap: 1.5rem; }
+        .file-upload-container { border: 2px dashed #ccc; border-radius: 8px; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s ease; }
+        .file-upload-container:hover { border-color: #3b82f6; background: #f0f7ff; }
+        .file-upload-container.dragover { border-color: #3b82f6; background: #e0f0ff; }
+        .file-input { display: none; }
+        .upload-btn { background: #3b82f6; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.3s ease; }
+        .upload-btn:hover { background: #2563eb; }
+        .upload-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .preview-container { margin-top: 1rem; display: none; }
+        .preview-image { max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid #eee; }
+        .back-btn { background: #f1f5f9; color: #3b82f6; border: 1px solid #e2e8f0; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; margin-top: 1rem; }
+        .back-btn:hover { background: #e2e8f0; }
+        .progress-container { margin-top: 1rem; display: none; }
+        .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .progress { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s ease; }
+        .status-message { margin-top: 1rem; padding: 0.75rem; border-radius: 8px; display: none; }
+        .status-message.success { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .status-message.error { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; order: 2; }
+            .main-content { order: 1; padding: 1rem; }
+            .welcome-title { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            <img src="./assets/Coforge-logo-Coral-Blue.png" alt="Coforge Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+            <span style="display:none; font-size: 1.5rem; font-weight: 700; color: #ff6b35;">Coforge</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <a href="#" class="nav-item active" onclick="setActive(this); showDashboard()">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-9 9a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l2.293 2.293a1 1 0 001.414-1.414l-9-9z"/>
+                </svg>
+                Dashboard
+            </a>
+            <a href="#" class="nav-item" onclick="setActive(this); showUploadPage()">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd"/>
+                </svg>
+                Upload
+            </a>
+            <a href="#" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                </svg>
+                Status
+            </a>
+            <a href="#" class="nav-item">
+                <svg class="nav-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                </svg>
+                Alerts
+            </a>
+        </div>
+
+        <div class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view">
+                <div class="welcome-banner">
+                    <h1 class="welcome-title">Welcome to KYC Portal</h1>
+                    <p class="welcome-subtitle">Get Started with your KYC.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card upload-card" onclick="showUploadPage()">
+                        <h2 class="card-title">Upload Documents</h2>
+                        <p class="card-subtitle">Start your verification process</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload View -->
+            <div id="upload-view" class="upload-page">
+                <h2 class="card-title">Upload Document</h2>
+                <p class="card-subtitle">Upload your document for KYC verification</p>
+                
+                <form id="upload-form" class="upload-form">
+                    <div id="file-upload-container" class="file-upload-container">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Drag & drop your document here or click to browse</p>
+                        <input type="file" id="file-input" class="file-input" accept="image/*,.pdf">
+                    </div>
+                    
+                    <div id="preview-container" class="preview-container">
+                        <h3>Selected File:</h3>
+                        <img id="preview-image" class="preview-image" src="#" alt="Preview">
+                    </div>
+                    
+                    <button type="button" id="upload-btn" class="upload-btn" disabled>Upload Document</button>
+                    
+                    <div id="progress-container" class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progress" class="progress"></div>
+                        </div>
+                        <p id="progress-text">Uploading: 0%</p>
+                    </div>
+                    
+                    <div id="status-message" class="status-message"></div>
+                </form>
+                
+                <button class="back-btn" onclick="showDashboard()">Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function setActive(element) { document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active')); element.classList.add('active'); }
+        function showDashboard() { document.getElementById('dashboard-view').style.display = 'block'; document.getElementById('upload-view').style.display = 'none'; }
+        function showUploadPage() { document.getElementById('dashboard-view').style.display = 'none'; document.getElementById('upload-view').style.display = 'block'; }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('file-input');
+            const fileUploadContainer = document.getElementById('file-upload-container');
+            const previewContainer = document.getElementById('preview-container');
+            const previewImage = document.getElementById('preview-image');
+            const uploadBtn = document.getElementById('upload-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress');
+            const progressText = document.getElementById('progress-text');
+            const statusMessage = document.getElementById('status-message');
+            let selectedFile = null;
+
+            fileUploadContainer.addEventListener('dragover', (e) => { e.preventDefault(); fileUploadContainer.classList.add('dragover'); });
+            fileUploadContainer.addEventListener('dragleave', () => fileUploadContainer.classList.remove('dragover'));
+            fileUploadContainer.addEventListener('drop', (e) => { e.preventDefault(); fileUploadContainer.classList.remove('dragover'); if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; handleFileSelection(e.dataTransfer.files[0]); } });
+            fileUploadContainer.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFileSelection(e.target.files[0]); });
+
+            function handleFileSelection(file) {
+                selectedFile = file;
+                if (!file.type.match('image.*') && !file.name.toLowerCase().endsWith('.pdf')) { showStatus('Only images and PDF files are allowed', 'error'); return; }
+                if (file.size > 5 * 1024 * 1024) { showStatus('File size should be less than 5MB', 'error'); return; }
+                
+                if (file.type.match('image.*')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) { previewImage.src = e.target.result; previewContainer.style.display = 'block'; };
+                    reader.readAsDataURL(file);
+                } else { previewContainer.style.display = 'none'; }
+                
+                uploadBtn.disabled = false;
+                showStatus('', '');
+            }
+
+            uploadBtn.addEventListener('click', () => { if (!selectedFile) return; uploadFile(selectedFile); });
+
+            function uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                progressContainer.style.display = 'block';
+                uploadBtn.disabled = true;
+                
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = function(e) { if (e.lengthComputable) { const percentComplete = Math.round((e.loaded / e.total) * 100); progressBar.style.width = percentComplete + '%'; progressText.textContent = `Uploading: ${percentComplete}%`; } };
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        showStatus(response.success ? 'Document uploaded successfully! Processing KYC verification...' : response.message || 'Upload failed', response.success ? 'success' : 'error');
+                    } else { showStatus('Upload failed: ' + xhr.statusText, 'error'); }
+                    progressContainer.style.display = 'none';
+                };
+                xhr.onerror = function() { showStatus('Upload failed. Please try again.', 'error'); progressContainer.style.display = 'none'; uploadBtn.disabled = false; };
+                xhr.open('POST', '/upload', true);
+                xhr.send(formData);
+            }
+
+            function showStatus(message, type) {
+                statusMessage.textContent = message;
+                statusMessage.className = 'status-message';
+                if (type) { statusMessage.classList.add(type); statusMessage.style.display = 'block'; } else { statusMessage.style.display = 'none'; }
+            }
+        });
+    </script>
+</body>
+</html>
