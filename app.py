@@ -745,6 +745,161 @@ def get_alerts():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Demo document for recruiter testing
+DEMO_FILE = "Philip DL.PNG"
+
+@app.route('/upload-demo', methods=['POST'])
+def upload_demo():
+    """Upload a pre-existing demo document for recruiter testing"""
+    demo_path = os.path.join(app.root_path, DEMO_FILE)
+    if not os.path.exists(demo_path):
+        return jsonify({'success': False, 'message': 'Demo file not found on server'}), 404
+
+    # Copy the demo file to uploads directory
+    import shutil
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    dest_path = os.path.join(app.config['UPLOAD_FOLDER'], DEMO_FILE)
+    shutil.copy2(demo_path, dest_path)
+
+    # Generate a unique document ID
+    document_id = str(uuid.uuid4())
+
+    # Initialize document status with detailed step tracking for the Agent Console
+    document_status[document_id] = {
+        'status': 'uploading',
+        'message': 'Demo document uploaded, processing...',
+        'verification_status': None,
+        'kyc_completed': False,
+        'logs': [
+            {'step': 'init', 'text': '[System] KYC Pipeline initialized', 'done': True}
+        ]
+    }
+
+    # Process the file in the background with logging
+    from threading import Thread
+    thread = Thread(target=process_document_with_logs, args=(dest_path, document_id))
+    thread.start()
+
+    return jsonify({
+        'success': True,
+        'documentId': document_id,
+        'message': 'Demo file uploaded successfully. Processing...'
+    })
+
+def process_document_with_logs(file_path, document_id):
+    """Background processing with step-by-step logging for the Agent Console"""
+    import time
+    try:
+        # Step 1: Load database
+        add_log(document_id, '[Database] Loading customer records from Excel database...')
+        database_sheets = load_database_sheets()
+        if not database_sheets:
+            add_log(document_id, '[Database] ✗ Failed to load database', error=True)
+            document_status[document_id]['status'] = 'error'
+            return
+        add_log(document_id, '[Database] ✓ Customer database loaded successfully')
+
+        # Step 2: Upload to Azure Blob Storage
+        add_log(document_id, '[Azure Blob] Uploading document to cloud storage...')
+        document_status[document_id]['status'] = 'uploading_to_blob'
+        blob_url = upload_to_blob(file_path, container_name, connection_string)
+        add_log(document_id, '[Azure Blob] ✓ Document uploaded to Azure Blob Storage')
+
+        # Step 3: OCR with Form Recognizer
+        add_log(document_id, '[Form Recognizer] Sending document for OCR text extraction...')
+        document_status[document_id]['status'] = 'extracting_text'
+        ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
+        add_log(document_id, '[Form Recognizer] ✓ Raw text extracted from document')
+
+        # Step 4: Determine document type
+        add_log(document_id, '[AI Agent] Analyzing document type...')
+        doc_type = determine_document_type(ocr_text)
+        add_log(document_id, f'[AI Agent] ✓ Document classified as: {doc_type}')
+
+        # Step 5: Extract structured fields with Gemini
+        add_log(document_id, '[Gemini AI] Extracting structured fields from OCR text...')
+        document_status[document_id]['status'] = 'extracting_structured_data'
+        structured_data = extract_structured_fields(ocr_text, doc_type)
+        if structured_data:
+            fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
+            add_log(document_id, f'[Gemini AI] ✓ Fields extracted: {fields}...')
+        else:
+            add_log(document_id, '[Gemini AI] ✓ Structured data extraction complete')
+
+        # Step 6: Verify against database
+        add_log(document_id, '[Verification Agent] Cross-referencing extracted data with database records...')
+        document_status[document_id]['status'] = 'verifying_data'
+        verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
+        
+        if verification_status == 'VALID':
+            add_log(document_id, '[Verification Agent] ✓ Document VALID — data matches database records')
+        else:
+            add_log(document_id, f'[Verification Agent] ✗ Document INVALID — {verification_message}')
+
+        # Step 7: Save to Excel
+        add_log(document_id, '[System] Saving verification results to status file...')
+        record = save_to_excel(structured_data, doc_type, verification_status, verification_message, STATUS_FILE)
+        add_log(document_id, '[System] ✓ Results saved to extracted_passport_details.xlsx')
+
+        # Final KYC decision
+        if verification_status == 'VALID':
+            add_log(document_id, '[KYC Decision] ✓ KYC APPROVED — All checks passed')
+        else:
+            add_log(document_id, f'[KYC Decision] ✗ KYC REJECTED — {verification_message}')
+
+        # Update final status
+        document_status[document_id].update({
+            'status': 'completed',
+            'message': verification_message,
+            'verification_status': verification_status,
+            'kyc_completed': verification_status == 'VALID',
+            'document_type': doc_type,
+            'document_data': structured_data,
+            'record': record
+        })
+
+        # Clean up
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    except Exception as e:
+        add_log(document_id, f'[Error] ✗ Processing failed: {str(e)}', error=True)
+        document_status[document_id].update({
+            'status': 'error',
+            'message': str(e),
+            'verification_status': None,
+            'kyc_completed': False
+        })
+
+def add_log(document_id, text, error=False):
+    """Add a log entry to the document's processing log"""
+    import time
+    if document_id in document_status:
+        if 'logs' not in document_status[document_id]:
+            document_status[document_id]['logs'] = []
+        document_status[document_id]['logs'].append({
+            'text': text,
+            'time': datetime.now().strftime('%H:%M:%S'),
+            'error': error
+        })
+
+@app.route('/process-logs/<document_id>', methods=['GET'])
+def get_process_logs(document_id):
+    """Return the processing logs for a document (polled by the Agent Console)"""
+    if document_id not in document_status:
+        return jsonify({'status': 'not_found', 'logs': []}), 404
+
+    info = document_status[document_id]
+    return jsonify({
+        'status': info.get('status', 'unknown'),
+        'logs': info.get('logs', []),
+        'verification_status': info.get('verification_status'),
+        'kyc_completed': info.get('kyc_completed', False),
+        'document_type': info.get('document_type'),
+        'document_data': info.get('document_data'),
+        'message': info.get('message')
+    })
+
 # === FRONTEND SERVING ===
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
