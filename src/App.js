@@ -137,7 +137,7 @@ const KYCPortal = () => {
     if (!pollingDocId) return;
 
     const poll = () => {
-      fetch(`http://localhost:5000/process-logs/${pollingDocId}`)
+      fetch(`/process-logs/${pollingDocId}`)
         .then(res => res.json())
         .then(data => {
           if (data.logs) {
@@ -210,7 +210,7 @@ const KYCPortal = () => {
       if (idCardFile) formData.append('id_card', idCardFile);
 
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', 'http://localhost:5000/upload', true);
+      xhr.open('POST', '/upload', true);
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -265,7 +265,7 @@ const KYCPortal = () => {
     setActiveTab("upload");
 
     try {
-      const response = await fetch('http://localhost:5000/upload-demo', { method: 'POST' });
+      const response = await fetch('/upload-demo', { method: 'POST' });
       const data = await response.json();
 
       if (data.success && data.documentId) {

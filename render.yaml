@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kyc-automation
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: AZURE_BLOB_CONNECTION_STRING
+        sync: false
+      - key: AZURE_BLOB_CONTAINER_NAME
+        sync: false
+      - key: AZURE_FORM_RECOGNIZER_ENDPOINT
+        sync: false
+      - key: AZURE_FORM_RECOGNIZER_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
