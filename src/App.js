@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
+const API_URL = process.env.REACT_APP_API_URL || '';
+
 // === REUSABLE COMPONENTS ===
 
 const TabButton = ({ id, icon: Icon, label, active, onClick }) => (
