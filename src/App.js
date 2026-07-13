@@ -144,7 +144,7 @@ const KYCPortal = () => {
 
       for (const [docKey, docId] of entries) {
         try {
-          const res = await fetch(`/process-logs/${docId}`);
+          const res = await fetch(`${API_URL}/process-logs/${docId}`);
           const data = await res.json();
           if (data.logs) {
             const prefixed = entries.length > 1
@@ -257,7 +257,7 @@ const KYCPortal = () => {
       formData.append('file', file);
 
       try {
-        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.success && data.documentId) {
           newDocIds[key] = data.documentId;
@@ -284,7 +284,7 @@ const KYCPortal = () => {
     setActiveTab("upload");
 
     try {
-      const response = await fetch('/upload-demo', { method: 'POST' });
+      const response = await fetch(`${API_URL}/upload-demo`, { method: 'POST' });
       const data = await response.json();
 
       if (data.success && data.documentId) {

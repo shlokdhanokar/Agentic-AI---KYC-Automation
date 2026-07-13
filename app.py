@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from azure.ai.formrecognizer import DocumentAnalysisClient
@@ -12,10 +13,23 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import pandas as pd
 import re
+from celery import Celery
+import database
 
 load_dotenv()
 
 app = Flask(__name__, static_folder='build/static', static_url_path='/static')
+CORS(app)  # Enable CORS for all routes
+
+def make_celery(app_name=__name__):
+    redis_url = os.environ.get('REDIS_URL')
+    if not redis_url:
+        raise ValueError('REDIS_URL is not set')
+    celery_url = redis_url
+    if celery_url.startswith('rediss://') and 'ssl_cert_reqs' not in celery_url:
+        celery_url += '?ssl_cert_reqs=CERT_NONE'
+    return Celery(app_name, backend=celery_url, broker=celery_url)
+celery = make_celery()
 
 # === CONFIGURATION ===
 UPLOAD_FOLDER = 'uploads'
@@ -37,10 +51,7 @@ if gemini_api_key:
 
 # Database file path
 DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
-STATUS_FILE = "extracted_passport_details.xlsx"
 
-# In-memory storage for document status (in production, use a database)
-document_status = {}
 
 # === HELPER FUNCTIONS ===
 def allowed_file(filename):
@@ -460,94 +471,6 @@ def verify_extracted_data(extracted_data, doc_type, database_sheets):
     else:
         return "ERROR", "Unknown document type"
 
-def save_to_excel(data, doc_type, verification_status, verification_message, file_name):
-    """Save extracted data to Excel file with DD/MM/YYYY date format"""
-    
-    # Check if file exists, if not create it with headers
-    if not os.path.exists(file_name):
-        print(f"File '{file_name}' does not exist. Creating new file with headers...")
-        columns = [
-            "Passport Number",
-            "Driving License Number", 
-            "Identity Card Number",
-            "Given Name",
-            "Surname",
-            "Date of Birth",
-            "Address/Place of Birth",
-            "Date of Expiration",
-            "Sex",
-            "Verification Status"
-        ]
-        pd.DataFrame(columns=columns).to_excel(file_name, index=False)
-    
-    # Determine the correct value for Address/Place of Birth based on document type
-    address_place_birth = "-"
-    if doc_type == "passport":
-        address_place_birth = data.get("Place of Birth", "-")
-    elif doc_type == "driving_license":
-        address_place_birth = data.get("Address", "-")
-    elif doc_type == "identity_card":
-        address_place_birth = data.get("Address", "-")
-    
-    # Format all date fields to DD/MM/YYYY before saving
-    date_of_birth = format_date_to_ddmmyyyy(data.get("Date of Birth", "-"))
-    date_of_expiration = format_date_to_ddmmyyyy(
-        data.get("Date of Expiration", 
-                 data.get("DI Expiry", 
-                         data.get("ID Expiry", "-")))
-    )
-    
-    # Create record with only the specified columns
-    record = {
-        "Passport Number": data.get("Passport Number", "-"),
-        "Driving License Number": data.get("DLN No", "-"),
-        "Identity Card Number": data.get("ID No", "-"),
-        "Given Name": data.get("Given Name", "-"),
-        "Surname": data.get("Surname", "-"),
-        "Date of Birth": date_of_birth,
-        "Address/Place of Birth": address_place_birth,
-        "Date of Expiration": date_of_expiration,
-        "Sex": data.get("Sex", "-"),
-        "Verification Status": verification_status
-    }
-    
-    # Create DataFrame with the new record
-    new_df = pd.DataFrame([record])
-    
-    try:
-        # Read existing file
-        existing_df = pd.read_excel(file_name)
-        
-        # Append new record
-        updated_df = pd.concat([existing_df, new_df], ignore_index=True)
-        
-        # Save updated DataFrame
-        updated_df.to_excel(file_name, index=False)
-        
-        print(f"✅ Data appended to {file_name} with verification status: {verification_status}")
-        
-    except Exception as e:
-        print(f"⚠️ Error appending to existing Excel file: {e}")
-        # If there's an error, just save the new record with headers
-        new_df.to_excel(file_name, index=False)
-        print(f"✅ Created new file with current record: {file_name}")
-
-    return record
-
-def get_verification_status(document_id):
-    """Get verification status from Excel file"""
-    try:
-        if not os.path.exists(STATUS_FILE):
-            return None
-        
-        df = pd.read_excel(STATUS_FILE)
-        if document_id in df.index:
-            return df.loc[document_id, 'Verification Status']
-        return None
-    except Exception as e:
-        print(f"Error reading status file: {e}")
-        return None
-
 # === API ENDPOINTS ===
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -571,17 +494,15 @@ def upload_file():
         document_id = str(uuid.uuid4())
         
         # Initialize document status
-        document_status[document_id] = {
+        database.save_document_status(document_id, {
             'status': 'uploading',
             'message': 'Document uploaded, processing...',
             'verification_status': None,
             'kyc_completed': False
-        }
+        })
         
         # Process the file in the background
-        from threading import Thread
-        thread = Thread(target=process_document, args=(file_path, document_id))
-        thread.start()
+        process_document.delay(file_path, document_id)
         
         return jsonify({
             'success': True,
@@ -591,159 +512,6 @@ def upload_file():
     
     return jsonify({'success': False, 'message': 'Invalid file type'}), 400
 
-def process_document(file_path, document_id):
-    """Background processing of uploaded document"""
-    try:
-        # Load database sheets
-        database_sheets = load_database_sheets()
-        if not database_sheets:
-            document_status[document_id] = {
-                'status': 'error',
-                'message': 'Failed to load database',
-                'verification_status': None,
-                'kyc_completed': False
-            }
-            return
-        
-        # Update status to uploading to blob
-        document_status[document_id] = {
-            'status': 'uploading_to_blob',
-            'message': 'Uploading document to Azure Blob Storage...',
-            'verification_status': None,
-            'kyc_completed': False
-        }
-        
-        # Upload to Azure Blob Storage
-        blob_url = upload_to_blob(file_path, container_name, connection_string)
-        
-        # Update status to extracting text
-        document_status[document_id] = {
-            'status': 'extracting_text',
-            'message': 'Extracting text from document...',
-            'verification_status': None,
-            'kyc_completed': False
-        }
-        
-        # Extract OCR text
-        ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
-        
-        # Determine document type
-        doc_type = determine_document_type(ocr_text)
-        
-        # Update status to extracting structured data
-        document_status[document_id] = {
-            'status': 'extracting_structured_data',
-            'message': 'Extracting structured data from document...',
-            'verification_status': None,
-            'kyc_completed': False
-        }
-        
-        # Extract structured data based on document type
-        structured_data = extract_structured_fields(ocr_text, doc_type)
-        
-        # Update status to verifying data
-        document_status[document_id] = {
-            'status': 'verifying_data',
-            'message': 'Verifying document data against database...',
-            'verification_status': None,
-            'kyc_completed': False
-        }
-        
-        # Verify extracted data against database
-        verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
-        
-        # Save to Excel
-        record = save_to_excel(structured_data, doc_type, verification_status, verification_message, STATUS_FILE)
-        
-        # Update final status
-        document_status[document_id] = {
-            'status': 'completed',
-            'message': verification_message,
-            'verification_status': verification_status,
-            'kyc_completed': verification_status == 'VALID',
-            'document_type': doc_type,
-            'document_data': structured_data,
-            'record': record
-        }
-        
-        # Clean up the uploaded file
-        os.remove(file_path)
-        
-    except Exception as e:
-        document_status[document_id] = {
-            'status': 'error',
-            'message': str(e),
-            'verification_status': None,
-            'kyc_completed': False
-        }
-
-@app.route('/status/<document_id>', methods=['GET'])
-def check_status(document_id):
-    """Check the status of document processing"""
-    if document_id not in document_status:
-        return jsonify({'status': 'not_found', 'message': 'Document ID not found'}), 404
-    
-    # Get the current status
-    status_info = document_status[document_id]
-    
-    # If processing is completed, get the verification status from Excel
-    if status_info['status'] == 'completed':
-        try:
-            if os.path.exists(STATUS_FILE):
-                df = pd.read_excel(STATUS_FILE)
-                # Find the most recent record for this document (assuming it's the last one)
-                if not df.empty:
-                    latest_record = df.iloc[-1].to_dict()
-                    status_info['verification_status'] = latest_record.get('Verification Status', 'UNKNOWN')
-                    status_info['kyc_completed'] = status_info['verification_status'] == 'VALID'
-        except Exception as e:
-            print(f"Error reading status file: {e}")
-    
-    return jsonify(status_info)
-
-@app.route('/status', methods=['GET'])
-def get_all_status():
-    """Get status of all documents"""
-    try:
-        if not os.path.exists(STATUS_FILE):
-            return jsonify([])
-        
-        df = pd.read_excel(STATUS_FILE)
-        # Replace NaN values with None for proper JSON serialization
-        df = df.where(pd.notnull(df), None)
-        # Convert DataFrame to list of dictionaries
-        records = df.to_dict('records')
-        return jsonify(records)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/alerts', methods=['GET'])
-def get_alerts():
-    """Get alerts from the system"""
-    try:
-        if not os.path.exists(STATUS_FILE):
-            return jsonify([])
-        
-        df = pd.read_excel(STATUS_FILE)
-        # Filter only invalid records
-        alerts = df[df['Verification Status'] == 'INVALID'].to_dict('records')
-        
-        # Format alerts with severity
-        formatted_alerts = []
-        for alert in alerts:
-            formatted_alerts.append({
-                'type': 'Verification Failed',
-                'message': f"Document verification failed for {alert.get('Given Name', '')} {alert.get('Surname', '')}",
-                'date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'severity': 'High',
-                'document_type': 'Passport' if alert.get('Passport Number', '-') != '-' else 
-                                'Driving License' if alert.get('Driving License Number', '-') != '-' else 
-                                'Identity Card'
-            })
-        
-        return jsonify(formatted_alerts)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 # Demo document for recruiter testing
 DEMO_FILE = "Philip DL.PNG"
@@ -751,21 +519,18 @@ DEMO_FILE = "Philip DL.PNG"
 @app.route('/upload-demo', methods=['POST'])
 def upload_demo():
     """Upload a pre-existing demo document for recruiter testing"""
+    import shutil
     demo_path = os.path.join(app.root_path, DEMO_FILE)
     if not os.path.exists(demo_path):
         return jsonify({'success': False, 'message': 'Demo file not found on server'}), 404
 
-    # Copy the demo file to uploads directory
-    import shutil
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     dest_path = os.path.join(app.config['UPLOAD_FOLDER'], DEMO_FILE)
     shutil.copy2(demo_path, dest_path)
 
-    # Generate a unique document ID
     document_id = str(uuid.uuid4())
 
-    # Initialize document status with detailed step tracking for the Agent Console
-    document_status[document_id] = {
+    database.save_document_status(document_id, {
         'status': 'uploading',
         'message': 'Demo document uploaded, processing...',
         'verification_status': None,
@@ -773,12 +538,9 @@ def upload_demo():
         'logs': [
             {'step': 'init', 'text': '[System] KYC Pipeline initialized', 'done': True}
         ]
-    }
+    })
 
-    # Process the file in the background with logging
-    from threading import Thread
-    thread = Thread(target=process_document_with_logs, args=(dest_path, document_id))
-    thread.start()
+    process_document_with_logs.delay(dest_path, document_id)
 
     return jsonify({
         'success': True,
@@ -786,39 +548,118 @@ def upload_demo():
         'message': 'Demo file uploaded successfully. Processing...'
     })
 
+@celery.task(name='app.process_document')
+def process_document(file_path, document_id):
+    """Background processing of uploaded document"""
+    try:
+        database_sheets = load_database_sheets()
+        if not database_sheets:
+            status = database.get_document_status(document_id) or {}
+            status.update({'status': 'error', 'message': 'Failed to load database'})
+            database.save_document_status(document_id, status)
+            return
+        
+        status = database.get_document_status(document_id) or {}
+        status.update({'status': 'uploading_to_blob', 'message': 'Uploading document to Azure Blob Storage...'})
+        database.save_document_status(document_id, status)
+        
+        blob_url = upload_to_blob(file_path, container_name, connection_string)
+        
+        status.update({'status': 'extracting_text', 'message': 'Extracting text from document...'})
+        database.save_document_status(document_id, status)
+        
+        ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
+        doc_type = determine_document_type(ocr_text)
+        
+        status.update({'status': 'extracting_structured_data', 'message': 'Extracting structured data from document...'})
+        database.save_document_status(document_id, status)
+        
+        structured_data = extract_structured_fields(ocr_text, doc_type)
+        
+        status.update({'status': 'verifying_data', 'message': 'Verifying document data against database...'})
+        database.save_document_status(document_id, status)
+        
+        verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
+        
+        # Save final record to Redis instead of Excel
+        record_data = {
+            "Passport Number": structured_data.get("Passport Number", "-"),
+            "Driving License Number": structured_data.get("DLN No", "-"),
+            "Identity Card Number": structured_data.get("ID No", "-"),
+            "Given Name": structured_data.get("Given Name", "-"),
+            "Surname": structured_data.get("Surname", "-"),
+            "Date of Birth": format_date_to_ddmmyyyy(structured_data.get("Date of Birth", "-")),
+            "Address/Place of Birth": structured_data.get("Place of Birth", structured_data.get("Address", "-")),
+            "Date of Expiration": format_date_to_ddmmyyyy(structured_data.get("Date of Expiration", structured_data.get("DI Expiry", structured_data.get("ID Expiry", "-")))),
+            "Sex": structured_data.get("Sex", "-"),
+            "Verification Status": verification_status
+        }
+        database.save_final_record(document_id, record_data)
+        
+        status.update({
+            'status': 'completed',
+            'message': verification_message,
+            'verification_status': verification_status,
+            'kyc_completed': verification_status == 'VALID',
+            'document_type': doc_type,
+            'document_data': structured_data,
+            'record': record_data
+        })
+        database.save_document_status(document_id, status)
+        
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            
+    except Exception as e:
+        status = database.get_document_status(document_id) or {}
+        status.update({'status': 'error', 'message': str(e)})
+        database.save_document_status(document_id, status)
+
+def add_log(document_id, text, error=False):
+    import time
+    log_entry = {
+        'text': text,
+        'time': datetime.now().strftime('%H:%M:%S'),
+        'error': error
+    }
+    database.add_log_to_document(document_id, log_entry)
+
+@celery.task(name='app.process_document_with_logs')
 def process_document_with_logs(file_path, document_id):
     """Background processing with step-by-step logging for the Agent Console"""
-    import time
     try:
-        # Step 1: Load database
         add_log(document_id, '[Database] Loading customer records from Excel database...')
         database_sheets = load_database_sheets()
         if not database_sheets:
             add_log(document_id, '[Database] ✗ Failed to load database', error=True)
-            document_status[document_id]['status'] = 'error'
+            status = database.get_document_status(document_id) or {}
+            status['status'] = 'error'
+            database.save_document_status(document_id, status)
             return
         add_log(document_id, '[Database] ✓ Customer database loaded successfully')
 
-        # Step 2: Upload to Azure Blob Storage
         add_log(document_id, '[Azure Blob] Uploading document to cloud storage...')
-        document_status[document_id]['status'] = 'uploading_to_blob'
+        status = database.get_document_status(document_id) or {}
+        status['status'] = 'uploading_to_blob'
+        database.save_document_status(document_id, status)
         blob_url = upload_to_blob(file_path, container_name, connection_string)
         add_log(document_id, '[Azure Blob] ✓ Document uploaded to Azure Blob Storage')
 
-        # Step 3: OCR with Form Recognizer
         add_log(document_id, '[Form Recognizer] Sending document for OCR text extraction...')
-        document_status[document_id]['status'] = 'extracting_text'
+        status = database.get_document_status(document_id)
+        status['status'] = 'extracting_text'
+        database.save_document_status(document_id, status)
         ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
         add_log(document_id, '[Form Recognizer] ✓ Raw text extracted from document')
 
-        # Step 4: Determine document type
         add_log(document_id, '[AI Agent] Analyzing document type...')
         doc_type = determine_document_type(ocr_text)
         add_log(document_id, f'[AI Agent] ✓ Document classified as: {doc_type}')
 
-        # Step 5: Extract structured fields with Gemini
         add_log(document_id, '[Gemini AI] Extracting structured fields from OCR text...')
-        document_status[document_id]['status'] = 'extracting_structured_data'
+        status = database.get_document_status(document_id)
+        status['status'] = 'extracting_structured_data'
+        database.save_document_status(document_id, status)
         structured_data = extract_structured_fields(ocr_text, doc_type)
         print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
         if structured_data:
@@ -827,9 +668,10 @@ def process_document_with_logs(file_path, document_id):
         else:
             add_log(document_id, '[Gemini AI] ✓ Structured data extraction complete')
 
-        # Step 6: Verify against database
         add_log(document_id, '[Verification Agent] Cross-referencing extracted data with database records...')
-        document_status[document_id]['status'] = 'verifying_data'
+        status = database.get_document_status(document_id)
+        status['status'] = 'verifying_data'
+        database.save_document_status(document_id, status)
         verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
         
         if verification_status == 'VALID':
@@ -837,60 +679,71 @@ def process_document_with_logs(file_path, document_id):
         else:
             add_log(document_id, f'[Verification Agent] ✗ Document INVALID — {verification_message}')
 
-        # Step 7: Save to Excel
-        add_log(document_id, '[System] Saving verification results to status file...')
-        record = save_to_excel(structured_data, doc_type, verification_status, verification_message, STATUS_FILE)
-        add_log(document_id, '[System] ✓ Results saved to extracted_passport_details.xlsx')
+        add_log(document_id, '[System] Saving verification results to database...')
+        record_data = {
+            "Passport Number": structured_data.get("Passport Number", "-"),
+            "Driving License Number": structured_data.get("DLN No", "-"),
+            "Identity Card Number": structured_data.get("ID No", "-"),
+            "Given Name": structured_data.get("Given Name", "-"),
+            "Surname": structured_data.get("Surname", "-"),
+            "Date of Birth": format_date_to_ddmmyyyy(structured_data.get("Date of Birth", "-")),
+            "Address/Place of Birth": structured_data.get("Place of Birth", structured_data.get("Address", "-")),
+            "Date of Expiration": format_date_to_ddmmyyyy(structured_data.get("Date of Expiration", structured_data.get("DI Expiry", structured_data.get("ID Expiry", "-")))),
+            "Sex": structured_data.get("Sex", "-"),
+            "Verification Status": verification_status
+        }
+        database.save_final_record(document_id, record_data)
+        add_log(document_id, '[System] ✓ Results saved to Redis')
 
-        # Final KYC decision
         if verification_status == 'VALID':
             add_log(document_id, '[KYC Decision] ✓ KYC APPROVED — All checks passed')
         else:
             add_log(document_id, f'[KYC Decision] ✗ KYC REJECTED — {verification_message}')
 
-        # Update final status
-        document_status[document_id].update({
+        status = database.get_document_status(document_id)
+        status.update({
             'status': 'completed',
             'message': verification_message,
             'verification_status': verification_status,
             'kyc_completed': verification_status == 'VALID',
             'document_type': doc_type,
             'document_data': structured_data,
-            'record': record
+            'record': record_data
         })
+        database.save_document_status(document_id, status)
 
-        # Clean up
         if os.path.exists(file_path):
             os.remove(file_path)
 
     except Exception as e:
         add_log(document_id, f'[Error] ✗ Processing failed: {str(e)}', error=True)
-        document_status[document_id].update({
-            'status': 'error',
-            'message': str(e),
-            'verification_status': None,
-            'kyc_completed': False
-        })
+        status = database.get_document_status(document_id) or {}
+        status.update({'status': 'error', 'message': str(e)})
+        database.save_document_status(document_id, status)
 
-def add_log(document_id, text, error=False):
-    """Add a log entry to the document's processing log"""
-    import time
-    if document_id in document_status:
-        if 'logs' not in document_status[document_id]:
-            document_status[document_id]['logs'] = []
-        document_status[document_id]['logs'].append({
-            'text': text,
-            'time': datetime.now().strftime('%H:%M:%S'),
-            'error': error
-        })
+@app.route('/status/<document_id>', methods=['GET'])
+def check_status(document_id):
+    status_info = database.get_document_status(document_id)
+    if not status_info:
+        return jsonify({'status': 'not_found', 'message': 'Document ID not found'}), 404
+    return jsonify(status_info)
+
+@app.route('/status', methods=['GET'])
+def get_all_status():
+    records = database.get_all_records()
+    return jsonify(records)
+
+@app.route('/alerts', methods=['GET'])
+def get_alerts_endpoint():
+    alerts = database.get_alerts()
+    return jsonify(alerts)
 
 @app.route('/process-logs/<document_id>', methods=['GET'])
 def get_process_logs(document_id):
-    """Return the processing logs for a document (polled by the Agent Console)"""
-    if document_id not in document_status:
+    info = database.get_document_status(document_id)
+    if not info:
         return jsonify({'status': 'not_found', 'logs': []}), 404
 
-    info = document_status[document_id]
     return jsonify({
         'status': info.get('status', 'unknown'),
         'logs': info.get('logs', []),
@@ -911,6 +764,5 @@ def serve(path):
         return send_from_directory(os.path.join(app.root_path, 'build'), 'index.html')
 
 if __name__ == '__main__':
-    # Create uploads directory if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     app.run(debug=True, port=5000)

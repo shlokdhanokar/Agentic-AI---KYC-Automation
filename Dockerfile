@@ -39,6 +39,7 @@ COPY app.py .
 COPY DATABASE_DOCUMENTS.xlsx .
 COPY *.py ./
 COPY ["Philip DL.PNG", "."]
+COPY start.sh .
 
 # Create uploads directory (used by the Flask app)
 RUN mkdir -p uploads
@@ -53,5 +54,6 @@ EXPOSE 5000
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 
-# Command to run the application using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# Run the startup script (starts both celery and flask)
+RUN chmod +x start.sh
+CMD ["./start.sh"]
