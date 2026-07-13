@@ -119,6 +119,7 @@ const KYCPortal = () => {
   const [licenseFile, setLicenseFile] = useState(null);
   const [idCardFile, setIdCardFile] = useState(null);
   const [previewUrls, setPreviewUrls] = useState({ passport: null, license: null, idCard: null });
+  // eslint-disable-next-line no-unused-vars
   const [validationResults, setValidationResults] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -129,6 +130,7 @@ const KYCPortal = () => {
   const pollingRef = useRef(null);
 
   const [agentProgress, setAgentProgress] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [alerts, setAlerts] = useState([]);
 
   const VALID_USERNAME = "shlok";
