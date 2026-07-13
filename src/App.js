@@ -116,14 +116,14 @@ const KYCPortal = () => {
   const [passportFile, setPassportFile] = useState(null);
   const [licenseFile, setLicenseFile] = useState(null);
   const [idCardFile, setIdCardFile] = useState(null);
+  const [previewUrls, setPreviewUrls] = useState({ passport: null, license: null, idCard: null });
   const [validationResults, setValidationResults] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ passport: 0, license: 0, idCard: 0 });
 
   // Agent Console state
   const [showConsole, setShowConsole] = useState(false);
   const [agentLogs, setAgentLogs] = useState([]);
-  const [pollingDocId, setPollingDocId] = useState(null);
+  const [pollingDocIds, setPollingDocIds] = useState({});
   const pollingRef = useRef(null);
 
   const [agentProgress, setAgentProgress] = useState(null);
@@ -132,43 +132,63 @@ const KYCPortal = () => {
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
 
-  // Poll the backend for processing logs
+  // Poll the backend for processing logs (supports multiple document IDs)
   useEffect(() => {
-    if (!pollingDocId) return;
+    const entries = Object.entries(pollingDocIds);
+    if (entries.length === 0) return;
 
-    const poll = () => {
-      fetch(`/process-logs/${pollingDocId}`)
-        .then(res => res.json())
-        .then(data => {
+    const poll = async () => {
+      let combinedLogs = [];
+      let allDone = true;
+      let latestResult = null;
+
+      for (const [docKey, docId] of entries) {
+        try {
+          const res = await fetch(`/process-logs/${docId}`);
+          const data = await res.json();
           if (data.logs) {
-            setAgentLogs(data.logs);
+            const prefixed = entries.length > 1
+              ? data.logs.map(l => ({ ...l, text: `[${docKey.toUpperCase()}] ${l.text}` }))
+              : data.logs;
+            combinedLogs = [...combinedLogs, ...prefixed];
+          }
+          if (data.status !== 'completed' && data.status !== 'error') {
+            allDone = false;
           }
           if (data.status === 'completed' || data.status === 'error') {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-            setUploading(false);
-
-            if (data.status === 'completed') {
-              setAgentProgress({
-                agent1: { name: "Document Processing", progress: 100, status: "completed" },
-                agent2: { name: "Validation", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid", message: data.message },
-                kycComplete: { name: "KYC Complete", progress: data.kyc_completed ? 100 : 50, status: data.kyc_completed ? "completed" : "incomplete" }
-              });
-              setValidationResults(data);
-              setActiveTab("status");
-            }
+            latestResult = data;
           }
-        })
-        .catch(err => console.error('Polling error:', err));
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }
+
+      setAgentLogs(combinedLogs);
+
+      if (allDone) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+        setUploading(false);
+
+        if (latestResult && latestResult.status === 'completed') {
+          setAgentProgress({
+            agent1: { name: "Document Processing", progress: 100, status: "completed" },
+            agent2: { name: "Validation", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid", message: latestResult.message },
+            kycComplete: { name: "KYC Complete", progress: latestResult.kyc_completed ? 100 : 50, status: latestResult.kyc_completed ? "completed" : "incomplete" }
+          });
+          setValidationResults(latestResult);
+          setActiveTab("status");
+        }
+      }
     };
 
     pollingRef.current = setInterval(poll, 1500);
-    poll(); // immediate first call
+    poll();
 
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [pollingDocId]);
+  }, [pollingDocIds]);
 
   const normalizeStatus = (status) => {
     switch (status?.toLowerCase()) {
@@ -188,72 +208,71 @@ const KYCPortal = () => {
     }
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const handleFileSelect = (key, setter, file) => {
+    setter(file);
+    setPreviewUrls(prev => {
+      if (prev[key]) URL.revokeObjectURL(prev[key]);
+      return { ...prev, [key]: file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null };
+    });
+  };
+
+  const handleFileRemove = (key, setter) => {
+    setter(null);
+    setPreviewUrls(prev => {
+      if (prev[key]) URL.revokeObjectURL(prev[key]);
+      return { ...prev, [key]: null };
+    });
+  };
+
   const handleUpload = async () => {
-    if (!passportFile && !licenseFile && !idCardFile) {
+    const filesToUpload = [];
+    if (passportFile) filesToUpload.push({ key: 'passport', label: 'Passport', file: passportFile });
+    if (licenseFile) filesToUpload.push({ key: 'license', label: 'Driving License', file: licenseFile });
+    if (idCardFile) filesToUpload.push({ key: 'idCard', label: 'ID Card', file: idCardFile });
+
+    if (filesToUpload.length === 0) {
       alert('Please upload at least one document');
       return;
     }
 
     setUploading(true);
     setShowConsole(true);
-    setAgentLogs([{ text: '[System] KYC Pipeline initialized', time: new Date().toLocaleTimeString() }]);
+    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString() }]);
     setAgentProgress({
       agent1: { name: "Document Processing", progress: 0, status: "processing" },
       agent2: { name: "Validation", progress: 0, status: "idle" },
       kycComplete: { name: "KYC Complete", progress: 0, status: "idle" }
     });
 
-    try {
+    const newDocIds = {};
+
+    for (const { key, label, file } of filesToUpload) {
       const formData = new FormData();
-      if (passportFile) formData.append('passport', passportFile);
-      if (licenseFile) formData.append('license', licenseFile);
-      if (idCardFile) formData.append('id_card', idCardFile);
+      formData.append('file', file);
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/upload', true);
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress({ passport: progress, license: progress, idCard: progress });
+      try {
+        const response = await fetch('/upload', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.success && data.documentId) {
+          newDocIds[key] = data.documentId;
+          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString() }]);
+        } else {
+          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
         }
-      };
+      } catch (error) {
+        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error uploading ${label}: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+      }
+    }
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          let validationStatus = "completed";
-          let validationMessage = "All documents are valid";
-          let kycStatus = "completed";
-          const invalidDocuments = [];
-          const validationMessages = [];
-
-          if (response.passport?.status === "INVALID") { invalidDocuments.push("Passport"); validationMessages.push(response.passport.message); }
-          if (response.license?.status === "INVALID") { invalidDocuments.push("Driving License"); validationMessages.push(response.license.message); }
-          if (response.id_card?.status === "INVALID") { invalidDocuments.push("ID Card"); validationMessages.push(response.id_card.message); }
-
-          if (invalidDocuments.length > 0) {
-            validationStatus = "invalid";
-            validationMessage = `Invalid documents: ${invalidDocuments.join(", ")}\n${validationMessages.join("\n")}`;
-            kycStatus = "incomplete";
-          }
-
-          setAgentProgress({
-            agent1: { name: "Document Processing", progress: 100, status: "completed" },
-            agent2: { name: "Validation", progress: 100, status: validationStatus, message: validationMessage },
-            kycComplete: { name: "KYC Complete", progress: kycStatus === "completed" ? 100 : 50, status: kycStatus }
-          });
-
-          setValidationResults(response);
-          setActiveTab("status");
-        }
-        setUploading(false);
-      };
-
-      xhr.onerror = () => { setUploading(false); };
-      xhr.send(formData);
-    } catch (error) {
-      console.error("Upload failed:", error);
+    if (Object.keys(newDocIds).length > 0) {
+      setPollingDocIds(newDocIds);
+    } else {
       setUploading(false);
     }
   };
@@ -269,7 +288,7 @@ const KYCPortal = () => {
       const data = await response.json();
 
       if (data.success && data.documentId) {
-        setPollingDocId(data.documentId);
+        setPollingDocIds({ demo: data.documentId });
       } else {
         setAgentLogs(prev => [...prev, { text: `[Error] ✗ ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
         setUploading(false);
@@ -430,77 +449,151 @@ const KYCPortal = () => {
   );
 
   // === RENDER: UPLOAD ===
-  const renderUpload = () => (
-    <div className="space-y-6">
-      {/* Demo Section for Recruiters */}
-      <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center space-x-3 mb-3">
-          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-            <Play className="w-5 h-5 text-purple-600" />
+  const renderUpload = () => {
+    const documents = [
+      { key: 'passport', label: 'Passport', description: 'National passport document', file: passportFile, setter: setPassportFile, gradient: 'from-blue-500 to-indigo-600', bgLight: 'bg-blue-50', borderActive: 'border-blue-400', iconEmoji: '\uD83D\uDEC2' },
+      { key: 'license', label: 'Driving License', description: 'Valid driving license', file: licenseFile, setter: setLicenseFile, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', borderActive: 'border-emerald-400', iconEmoji: '\uD83D\uDE97' },
+      { key: 'idCard', label: 'ID Card', description: 'Government-issued ID card', file: idCardFile, setter: setIdCardFile, gradient: 'from-purple-500 to-violet-600', bgLight: 'bg-purple-50', borderActive: 'border-purple-400', iconEmoji: '\uD83E\uDEAA' },
+    ];
+    const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
+
+    return (
+      <div className="space-y-6">
+        {/* Demo Section for Recruiters */}
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center space-x-3 mb-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+              <Play className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800">Try Demo</h3>
+              <p className="text-xs text-gray-500">No documents? Use our pre-loaded sample to see the full AI pipeline in action.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-gray-800">Try Demo</h3>
-            <p className="text-xs text-gray-500">No documents? Use our pre-loaded sample to see the full AI pipeline in action.</p>
-          </div>
+          <button
+            onClick={handleDemoUpload}
+            disabled={uploading}
+            className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2
+              ${uploading
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5'}`}
+          >
+            <Terminal className="w-4 h-4" />
+            <span>{uploading ? 'Processing Demo...' : 'Run Demo with Sample Document'}</span>
+          </button>
         </div>
-        <button
-          onClick={handleDemoUpload}
-          disabled={uploading}
-          className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2
-            ${uploading
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5'}`}
-        >
-          <Terminal className="w-4 h-4" />
-          <span>{uploading ? 'Processing Demo...' : 'Run Demo with Sample Document'}</span>
-        </button>
-      </div>
 
-      {/* Manual Upload */}
-      <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-        <h3 className="text-lg font-bold mb-1 text-gray-800">Upload Documents</h3>
-        <p className="text-sm text-gray-500 mb-4">Or upload your own documents for KYC verification.</p>
-
-        {[
-          { label: 'Passport', setter: setPassportFile, file: passportFile, progress: uploadProgress.passport },
-          { label: 'Driving License', setter: setLicenseFile, file: licenseFile, progress: uploadProgress.license },
-          { label: 'Identification Card', setter: setIdCardFile, file: idCardFile, progress: uploadProgress.idCard }
-        ].map(({ label, setter, file, progress }) => (
-          <label key={label} className="block border-2 border-dashed border-gray-200 p-5 text-center rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 mb-3 transition-all duration-200">
-            <Upload size={28} className="text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Upload {label} (PDF, PNG, JPG)</p>
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setter(e.target.files?.[0] || null)}
-              className="hidden"
-            />
-            {file && (
-              <div className="mt-2">
-                <p className="text-sm text-emerald-600 font-medium">✓ Selected: {file.name}</p>
-                {progress > 0 && (
-                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                    <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
-                  </div>
-                )}
-              </div>
+        {/* Upload Section */}
+        <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Upload Documents</h3>
+              <p className="text-sm text-gray-500">Upload your documents for KYC verification. Preview is shown after selection.</p>
+            </div>
+            {selectedCount > 0 && (
+              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-100 text-blue-700">
+                {selectedCount}/3 selected
+              </span>
             )}
-          </label>
-        ))}
+          </div>
 
-        <button
-          onClick={handleUpload}
-          disabled={uploading || (!passportFile && !licenseFile && !idCardFile)}
-          className={`mt-4 w-full py-3 rounded-xl font-semibold transition-all duration-300
-            ${uploading || (!passportFile && !licenseFile && !idCardFile)
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/25'}`}
-        >
-          {uploading ? "Processing..." : "Upload All Documents"}
-        </button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {documents.map(doc => (
+              <div key={doc.key}
+                className={`rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
+                  doc.file
+                    ? doc.borderActive + ' shadow-lg hover:shadow-xl'
+                    : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+                }`}
+              >
+                {/* Card Header */}
+                <div className={`bg-gradient-to-r ${doc.gradient} px-4 py-3 flex items-center justify-between`}>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{doc.iconEmoji}</span>
+                    <div>
+                      <h4 className="text-white font-semibold text-sm">{doc.label}</h4>
+                      <p className="text-white/70 text-[10px]">{doc.description}</p>
+                    </div>
+                  </div>
+                  {doc.file && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
+                  )}
+                </div>
+
+                {/* Card Body */}
+                <div className="p-4 bg-white">
+                  {doc.file ? (
+                    <div className="relative group">
+                      {/* Preview Area */}
+                      {previewUrls[doc.key] ? (
+                        <div className="relative overflow-hidden rounded-xl border border-gray-100">
+                          <img
+                            src={previewUrls[doc.key]}
+                            alt={`${doc.label} preview`}
+                            className="w-full h-44 object-contain bg-gray-50"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-300 rounded-xl"></div>
+                        </div>
+                      ) : (
+                        <div className={`w-full h-44 ${doc.bgLight} rounded-xl flex flex-col items-center justify-center border border-dashed ${doc.borderActive}`}>
+                          <span className="text-4xl mb-2">\uD83D\uDCC4</span>
+                          <p className="text-xs font-medium text-gray-600">PDF Document</p>
+                        </div>
+                      )}
+
+                      {/* File Info Bar */}
+                      <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="text-xs font-semibold text-gray-700 truncate">{doc.file.name}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{formatFileSize(doc.file.size)}</p>
+                        </div>
+                        <button
+                          onClick={() => handleFileRemove(doc.key, doc.setter)}
+                          className="shrink-0 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-all duration-200"
+                          title="Remove file"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="block cursor-pointer">
+                      <div className={`w-full h-44 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center hover:border-gray-400 hover:${doc.bgLight} transition-all duration-200 group`}>
+                        <div className="w-12 h-12 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center mb-3 transition-colors">
+                          <Upload className="w-5 h-5 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-400 group-hover:text-gray-600 transition-colors">Click to upload</p>
+                        <p className="text-[10px] text-gray-300 mt-1">PDF, PNG, JPG \u2022 Max 10MB</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg"
+                        onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Upload Button */}
+          <button
+            onClick={handleUpload}
+            disabled={uploading || selectedCount === 0}
+            className={`mt-6 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2
+              ${uploading || selectedCount === 0
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30 hover:-translate-y-0.5'}`}
+          >
+            <Upload className="w-4 h-4" />
+            <span>{uploading ? 'Processing...' : `Upload & Verify ${selectedCount > 0 ? `(${selectedCount} Document${selectedCount > 1 ? 's' : ''})` : 'All Documents'}`}</span>
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // === RENDER: STATUS ===
   const renderStatus = () => {
