@@ -298,9 +298,9 @@ def load_database_sheets():
 
 def verify_passport_data(extracted_data, passport_df):
     """Verify passport data against database"""
-    passport_no = extracted_data.get('Passport Number', '').strip()
-    given_name = extracted_data.get('Given Name', '').strip().upper()
-    surname = extracted_data.get('Surname', '').strip().upper()
+    passport_no = extracted_data.get('Passport Number', extracted_data.get('Passport No', extracted_data.get('Passport', ''))).strip()
+    given_name = extracted_data.get('Given Name', extracted_data.get('First Name', '')).strip().upper()
+    surname = extracted_data.get('Surname', extracted_data.get('Last Name', '')).strip().upper()
     
     if not passport_no:
         return "INVALID", "Passport number not found"
@@ -338,9 +338,9 @@ def verify_passport_data(extracted_data, passport_df):
 
 def verify_dl_data(extracted_data, dl_df):
     """Verify driving license data against database"""
-    dln_no = extracted_data.get('DLN No', '').strip()
-    given_name = extracted_data.get('Given Name', '').strip().upper()
-    surname = extracted_data.get('Surname', '').strip().upper()
+    dln_no = extracted_data.get('DLN No', extracted_data.get('Driving License Number', extracted_data.get('DLN', extracted_data.get('License No', '')))).strip()
+    given_name = extracted_data.get('Given Name', extracted_data.get('First Name', '')).strip().upper()
+    surname = extracted_data.get('Surname', extracted_data.get('Last Name', '')).strip().upper()
     
     if not dln_no:
         return "INVALID", "DLN number not found"
@@ -394,9 +394,9 @@ def verify_dl_data(extracted_data, dl_df):
 
 def verify_id_data(extracted_data, id_df):
     """Verify identity card data against database"""
-    id_no = extracted_data.get('ID No', '').strip()
-    given_name = extracted_data.get('Given Name', '').strip().upper()
-    surname = extracted_data.get('Surname', '').strip().upper()
+    id_no = extracted_data.get('ID No', extracted_data.get('Identity Card Number', extracted_data.get('ID Number', ''))).strip()
+    given_name = extracted_data.get('Given Name', extracted_data.get('First Name', '')).strip().upper()
+    surname = extracted_data.get('Surname', extracted_data.get('Last Name', '')).strip().upper()
     
     if not id_no:
         return "INVALID", "ID number not found"
@@ -820,6 +820,7 @@ def process_document_with_logs(file_path, document_id):
         add_log(document_id, '[Gemini AI] Extracting structured fields from OCR text...')
         document_status[document_id]['status'] = 'extracting_structured_data'
         structured_data = extract_structured_fields(ocr_text, doc_type)
+        print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
         if structured_data:
             fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
             add_log(document_id, f'[Gemini AI] ✓ Fields extracted: {fields}...')
