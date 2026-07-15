@@ -250,7 +250,9 @@ OCR Text:
         gpt_response = "{}"
     
     try:
-        extracted_data = json.loads(gpt_response)
+        # Strip markdown formatting if Gemini included it
+        cleaned_response = gpt_response.replace('```json', '').replace('```', '').strip()
+        extracted_data = json.loads(cleaned_response)
     except json.JSONDecodeError:
         extracted_data = {}
         for line in gpt_response.splitlines():
