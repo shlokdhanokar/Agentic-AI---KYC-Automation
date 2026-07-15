@@ -180,20 +180,17 @@ def extract_structured_fields(full_text, doc_type):
     if doc_type == "passport":
         prompt = f"""
 You are an assistant that extracts structured passport information from OCR text.
-Extract the following fields:
-- Passport Number
-- Surname
-- Given Name
-- Date of Birth
-- Place of Birth
-- Date of Expiration
-- Sex
-- Nationality
+Extract the following fields using these EXACT JSON keys:
+- "Passport No"
+- "Given Name"
+- "Surname"
+- "Date of Birth"
+- "Place of Birth"
+- "Date of Expiration"
+- "Sex"
+- "Nationality"
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
-Don't use quotes for every cell.
-If only a full name is provided, split the last word as surname.
-If a field is not explicitly labeled, infer it from context.
 Return the result as a JSON object with keys exactly as listed above.
 
 OCR Text:
@@ -202,18 +199,16 @@ OCR Text:
     elif doc_type == "driving_license":
         prompt = f"""
 You are an assistant that extracts structured driving license information from OCR text.
-Extract the following fields:
-- DLN No (Driving License Number)
-- Given Name
-- Surname
-- Date of Birth
-- Sex
-- DI Expiry (License Expiry Date)
-- Address (Complete address from the license)
+Extract the following fields using these EXACT JSON keys:
+- "DLN No"
+- "Given Name"
+- "Surname"
+- "Date of Birth"
+- "Sex"
+- "DI Expiry"
+- "Address"
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
-Don't use quotes for every cell.
-If only a full name is provided, split the last word as surname.
 Return the result as a JSON object with keys exactly as listed above.
 
 OCR Text:
@@ -221,19 +216,17 @@ OCR Text:
 """
     else:  # identity_card
         prompt = f"""
-You are an assistant that extracts structured identity card information from OCR text.
-Extract the following fields:
-- ID No (Identity Card Number)
-- Given Name
-- Surname
-- Date of Birth
-- Sex
-- ID Expiry
-- Address (Complete address from the ID card)
+You are an assistant that extracts structured ID card information from OCR text.
+Extract the following fields using these EXACT JSON keys:
+- "ID Number"
+- "Given Name"
+- "Surname"
+- "Date of Birth"
+- "Sex"
+- "Date of Expiry"
+- "Address"
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
-Don't use quotes for every cell.
-If only a full name is provided, split the last word as surname.
 Return the result as a JSON object with keys exactly as listed above.
 
 OCR Text:
