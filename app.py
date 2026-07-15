@@ -15,6 +15,8 @@ import pandas as pd
 import re
 from celery import Celery
 import database
+from celery import Celery
+import database
 
 load_dotenv()
 
@@ -247,7 +249,7 @@ OCR Text:
         gpt_response = response.text
     except Exception as e:
         print(f"Gemini API Error: {e}")
-        gpt_response = "{}"
+        gpt_response = f'{{"Error": "Gemini API failed: {str(e)}" }}'
     
     try:
         # Strip markdown formatting if Gemini included it
@@ -658,8 +660,11 @@ def process_document_with_logs(file_path, document_id):
         structured_data = extract_structured_fields(ocr_text, doc_type)
         print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
         if structured_data:
-            fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
-            add_log(document_id, f'[Gemini AI] ✓ Fields extracted: {fields}...')
+            if "Error" in structured_data:
+                add_log(document_id, f'[Gemini AI] ✗ API Error: {structured_data["Error"]}', error=True)
+            else:
+                fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
+                add_log(document_id, f'[Gemini AI] ✓ Fields extracted: {fields}...')
         else:
             add_log(document_id, '[Gemini AI] ✓ Structured data extraction complete')
 
