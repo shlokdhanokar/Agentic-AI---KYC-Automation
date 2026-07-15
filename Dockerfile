@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY database.py .
 COPY start.sh .
+COPY DATABASE_DOCUMENTS.xlsx .
 COPY ["Philip DL.PNG", "."]
 
 # Create uploads directory (used by the Flask app)
