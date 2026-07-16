@@ -53,7 +53,9 @@ if not groq_api_key:
     raise ValueError("GROQ_API_KEY is not set in the environment variables.")
 
 # Database file path
-DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
+import os
+base_dir = os.path.dirname(os.path.abspath(__file__))
+DATABASE_FILE = os.path.join(base_dir, "DATABASE_DOCUMENTS.xlsx")
 
 
 # === HELPER FUNCTIONS ===
@@ -762,11 +764,14 @@ def process_document_with_logs(file_path, document_id):
             
             import time
             time.sleep(1.5) # Simulate API latency
+            import os
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            ofac_path = os.path.join(base_dir, 'OFAC_SDN_LIST.csv')
             
             # Load the newly generated CSV list
             try:
                 import pandas as pd
-                ofac_df = pd.read_csv('OFAC_SDN_LIST.csv')
+                ofac_df = pd.read_csv(ofac_path)
                 
                 match_found = False
                 for index, row in ofac_df.iterrows():
