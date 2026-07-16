@@ -689,6 +689,21 @@ const KYCPortal = () => {
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* Top Navigation */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center space-x-1 bg-gray-50/80 backdrop-blur-md border border-gray-200 rounded-xl p-1 shadow-sm">
+            <button 
+              onClick={() => setCurrentTab('live_kyc')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${currentTab === 'live_kyc' ? 'bg-white text-[#003a6b] shadow border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <LayoutDashboard className="w-4 h-4" /> <span>Command Center</span>
+            </button>
+            <button 
+              onClick={() => setCurrentTab('user_management')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${currentTab === 'user_management' ? 'bg-white text-[#003a6b] shadow border border-gray-100' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              <Users className="w-4 h-4" /> <span>Audit & Users</span>
+            </button>
+          </div>
           
 
           <button
