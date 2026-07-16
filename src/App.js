@@ -6,119 +6,72 @@ import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-// === MULTI-AGENT COUNCIL FEED ===
-const agentConfig = {
-  'Orchestrator': { icon: Brain, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', title: 'Orchestrator Agent' },
-  'Vision AI': { icon: Scan, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', title: 'Vision OCR Agent' },
-  'Database AI': { icon: Database, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-200', title: 'Database Agent' },
-  'Compliance AI': { icon: ShieldAlert, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', title: 'Compliance Agent' },
-  'System': { icon: Settings, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', title: 'System Engine' },
-  'Unknown': { icon: Bot, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', title: 'AI Agent' }
-};
+// === TERMINAL CONSOLE (stays dark - it's a terminal!) ===
+const AgentConsole = ({ logs }) => {
+  const scrollRef = React.useRef(null);
 
-const parseAgentLog = (logText) => {
-  const match = logText.match(/^\[(.*?)\] (.*)$/);
-  if (match) {
-    let agentType = match[1];
-    // Map backend prefixes to our config keys
-    if (agentType === 'Form Recognizer') agentType = 'Vision AI';
-    if (agentType === 'Database') agentType = 'Database AI';
-    if (agentType === 'Verification Agent') agentType = 'Compliance AI';
-    if (agentType === 'OFAC Screening') agentType = 'Compliance AI';
-    if (agentType === 'AI Agent') agentType = 'Vision AI';
-    
-    return {
-      agent: agentConfig[agentType] || agentConfig['Unknown'],
-      message: match[2]
-    };
-  }
-  return {
-    agent: agentConfig['System'],
-    message: logText
-  };
-};
-
-const AgentCouncilFeed = ({ logs }) => {
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
+  React.useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [logs]);
 
+  const getLogColor = (log) => {
+    const text = log.text || '';
+    if (log.error) return 'text-red-400';
+    if (text.includes('✓') || text.includes('APPROVED')) return 'text-emerald-400';
+    if (text.includes('✗') || text.includes('REJECTED') || text.includes('INVALID')) return 'text-red-400';
+    if (text.includes('[Groq AI]') || text.includes('[AI Agent]')) return 'text-fuchsia-400';
+    if (text.includes('[Azure')) return 'text-sky-400';
+    if (text.includes('[Form Recognizer]')) return 'text-amber-400';
+    if (text.includes('[Database]')) return 'text-cyan-400';
+    if (text.includes('[Verification')) return 'text-yellow-400';
+    if (text.includes('[OFAC')) return 'text-orange-400';
+    if (text.includes('[KYC')) return 'text-purple-400';
+    return 'text-gray-300';
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 relative">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-white/80 border-b border-gray-100">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center border border-indigo-200/50">
-            <Sparkles className="w-4 h-4 text-indigo-600" />
-          </div>
-          <span className="text-[#001f3f] text-xs font-bold tracking-wider uppercase">Multi-Agent Council</span>
-        </div>
+    <div className="flex flex-col h-full bg-[#0d1117] rounded-2xl overflow-hidden font-mono text-xs shadow-xl border border-gray-200 relative">
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-gray-700/50">
         <div className="flex items-center space-x-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          <div className="flex space-x-1.5">
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          </div>
+          <span className="ml-2 text-gray-400 text-xs font-semibold flex items-center tracking-wider">
+            AGENT CONSOLE
           </span>
-          <span className="text-emerald-600 text-[10px] font-bold tracking-widest uppercase">Active</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          <span className="text-green-500 text-[9px] font-bold tracking-widest">LIVE</span>
         </div>
       </div>
 
-      {/* Feed Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
+      {/* Terminal Body */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
         {logs.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-3">
-            <Bot className="w-8 h-8 opacity-50" />
-            <p className="text-xs">Awaiting pipeline initialization...</p>
+          <div className="text-gray-600 italic flex items-center">
+            Awaiting pipeline initialization...
           </div>
         )}
-        
-        {logs.map((log, i) => {
-          const parsed = parseAgentLog(log.text);
-          const AgentIcon = parsed.agent.icon;
-          const isError = log.error || parsed.message.includes('FAILED') || parsed.message.includes('INVALID');
-          const isSuccess = parsed.message.includes('APPROVED') || parsed.message.includes('successfully');
-          
-          return (
-            <div key={i} className="flex space-x-3 animate-fade-in group">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm ${parsed.agent.bg} ${parsed.agent.border} ${parsed.agent.color} group-hover:scale-105 transition-transform`}>
-                <AgentIcon className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className={`text-[10px] font-bold ${parsed.agent.color} tracking-wide`}>{parsed.agent.title}</span>
-                  <span className="text-[9px] text-gray-400 font-mono">{log.time || '--:--:--'}</span>
-                </div>
-                <div className={`text-xs p-3 rounded-2xl rounded-tl-none border shadow-sm w-fit max-w-[95%] leading-relaxed ${
-                  isError ? 'bg-red-50 text-red-700 border-red-200' :
-                  isSuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                  'bg-white text-gray-700 border-gray-100'
-                }`}>
-                  {parsed.message}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Typing indicator (when processing) */}
+        {logs.map((log, i) => (
+          <div key={i} className={`flex items-start space-x-3 ${getLogColor(log)} animate-fade-in`}>
+            <span className="text-gray-600 shrink-0 select-none">[{log.time || '--:--:--'}]</span>
+            <span className="leading-relaxed">{log.text}</span>
+          </div>
+        ))}
         {logs.length > 0 && !logs[logs.length - 1]?.text?.includes('[KYC Decision]') && (
-          <div className="flex space-x-3 animate-fade-in">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-gray-200 bg-gray-50 shadow-sm">
-              <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
-            </div>
-            <div className="flex-1">
-              <div className="text-[10px] font-bold text-gray-400 tracking-wide mb-0.5">Council processing...</div>
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 w-fit shadow-sm flex items-center space-x-1">
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-              </div>
-            </div>
-          </div>
+          <div className="text-gray-500 animate-pulse mt-2">▋</div>
         )}
+      </div>
+
+      {/* Terminal Footer */}
+      <div className="px-4 py-1.5 bg-[#161b22] border-t border-gray-700/50 text-[9px] text-gray-600 tracking-wide">
+        Powered by Azure Blob Storage • Azure Form Recognizer • Groq Llama 3.3
       </div>
     </div>
   );
@@ -399,8 +352,8 @@ const KYCPortal = () => {
   const pollingRef = useRef(null);
 
   const [agentProgress, setAgentProgress] = useState(null);
-  const [extractedData, setExtractedData] = useState(null);
-  const [extractedDocType, setExtractedDocType] = useState(null);
+  const [extractedDataMap, setExtractedDataMap] = useState({});
+  const [extractedDocTypeMap, setExtractedDocTypeMap] = useState({});
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const [currentDocId, setCurrentDocId] = useState(null);
@@ -417,8 +370,6 @@ const KYCPortal = () => {
     const poll = async () => {
       let combinedLogs = [];
       let allDone = true;
-      let latestResult = null;
-      let latestDocId = null;
 
       for (const [docKey, docId] of entries) {
         try {
@@ -432,10 +383,22 @@ const KYCPortal = () => {
           }
           if (data.status !== 'completed' && data.status !== 'error') {
             allDone = false;
+            if (data.progress) {
+                setAgentProgressMap(prev => ({ ...prev, [docKey]: data.progress }));
+            }
           }
           if (data.status === 'completed' || data.status === 'error') {
-            latestResult = data;
-            latestDocId = docId;
+            const finalProgress = {
+              agent1: { name: "OCR Processing", progress: 100, status: "completed" },
+              agent2: { name: "Data Validation", progress: 100, status: (data.verification_status === 'VALID' || (data.verification_status === 'INVALID' && data.message?.includes('OFAC'))) ? "completed" : "invalid" },
+              agent3: { name: "OFAC Screening", progress: 100, status: data.verification_status === 'VALID' ? "completed" : (data.message?.includes('OFAC') ? "invalid" : "idle"), message: data.message },
+              kycComplete: { name: "KYC Decision", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid" }
+            };
+            setAgentProgressMap(prev => ({ ...prev, [docKey]: finalProgress }));
+            if (data.document_data) {
+              setExtractedDataMap(prev => ({ ...prev, [docKey]: data.document_data }));
+              setExtractedDocTypeMap(prev => ({ ...prev, [docKey]: data.document_type || 'unknown' }));
+            }
           }
         } catch (err) {
           console.error('Polling error:', err);
@@ -448,21 +411,6 @@ const KYCPortal = () => {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
         setUploading(false);
-
-        if (latestResult && latestResult.status === 'completed') {
-          setAgentProgress({
-            agent1: { name: "OCR Processing", progress: 100, status: "completed" },
-            agent2: { name: "Data Validation", progress: 100, status: (latestResult.verification_status === 'VALID' || (latestResult.verification_status === 'INVALID' && latestResult.message?.includes('OFAC'))) ? "completed" : "invalid" },
-            agent3: { name: "OFAC Screening", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : (latestResult.message?.includes('OFAC') ? "invalid" : "idle"), message: latestResult.message },
-            kycComplete: { name: "KYC Decision", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid" }
-          });
-          // Store extracted document data for the ID Card display
-          if (latestResult.document_data) {
-            setExtractedData(latestResult.document_data);
-            setExtractedDocType(latestResult.document_type || 'unknown');
-            setCurrentDocId(latestDocId);
-          }
-        }
       }
     };
 
@@ -580,7 +528,7 @@ const KYCPortal = () => {
     setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents...', time: new Date().toLocaleTimeString() }]);
 
     const newDocIds = {};
-    const docTypes = ['license'];
+    const docTypes = ['passport', 'license', 'idCard'];
 
     for (const docType of docTypes) {
       try {
@@ -618,6 +566,8 @@ const KYCPortal = () => {
     else if (lastLog.includes("[KYC Decision]")) activeAgent = 4;
     else activeAgent = 1;
   }
+  
+  const displayProgress = Object.values(agentProgressMap)[0] || initialAgentProgress;
 
   // === RENDER: LOGIN ===
   if (!authenticated) {
@@ -767,10 +717,10 @@ const KYCPortal = () => {
                 </svg>
               )}
 
-              <PipelineNode icon={FileText} title="Extraction" status={agentProgress?.agent1?.status} active={activeAgent === 1} />
-              <PipelineNode icon={Database} title="Validation" status={agentProgress?.agent2?.status} active={activeAgent === 2} />
-              <PipelineNode icon={ShieldAlert} title="OFAC" status={agentProgress?.agent3?.status} active={activeAgent === 3} />
-              <PipelineNode icon={CheckCircle} title="Decision" status={agentProgress?.kycComplete?.status} active={activeAgent === 4 || (agentProgress?.kycComplete?.status && agentProgress?.kycComplete?.status !== 'idle')} />
+              <PipelineNode icon={Scan} title="Vision OCR Agent" status={displayProgress?.agent1?.status} active={activeAgent === 1} />
+              <PipelineNode icon={Database} title="Database Agent" status={displayProgress?.agent2?.status} active={activeAgent === 2} />
+              <PipelineNode icon={ShieldAlert} title="Compliance Agent" status={displayProgress?.agent3?.status} active={activeAgent === 3} />
+              <PipelineNode icon={Brain} title="Orchestrator Agent" status={displayProgress?.kycComplete?.status} active={activeAgent === 4 || (displayProgress?.kycComplete?.status && displayProgress?.kycComplete?.status !== 'idle')} />
             </div>
           </div>
 
@@ -799,36 +749,39 @@ const KYCPortal = () => {
             </form>
           </div>
 
-          {/* Multi-Agent Council Feed */}
+          {/* Terminal Console */}
           <div className="flex-1 min-h-0">
-            <AgentCouncilFeed logs={agentLogs} />
+            <AgentConsole logs={agentLogs} />
           </div>
         </div>
 
         {/* RIGHT PANE: Documents & Status */}
-        <div className="col-span-12 lg:col-span-5 flex flex-col space-y-5 h-full min-h-0">
-
-          {/* Upload / Preview Area */}
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 flex flex-col flex-1 min-h-0 border border-gray-200/80 shadow-sm">
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <h3 className="text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
-                <Upload className="w-3 h-3 mr-2 text-[#003a6b]" /> Upload Documents
-              </h3>
-              {selectedCount > 0 && (
-                <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-[#003a6b] border border-blue-200">
-                  {selectedCount}/3 selected
-                </span>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
-              {documents.map(doc => {
-                const hasFile = doc.file || previewUrls[doc.key];
-                return (
-                  <div key={doc.key} className={`rounded-xl overflow-hidden transition-all duration-300 ${hasFile ? 'border-2 border-blue-300 shadow-md' : 'border-2 border-dashed border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
+        <div className="col-span-12 lg:col-span-5 flex flex-col h-full min-h-0 bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="p-5 flex items-center justify-between border-b border-gray-100 bg-white/80 shrink-0">
+            <h3 className="text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
+              <Upload className="w-3 h-3 mr-2 text-[#003a6b]" /> Document Pipeline
+            </h3>
+            {selectedCount > 0 && (
+              <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-[#003a6b] border border-blue-200">
+                {selectedCount}/3 processed
+              </span>
+            )}
+          </div>
+          
+          {/* Scrollable Document List */}
+          <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-8 bg-gray-50/50">
+            {documents.map(doc => {
+              const hasFile = doc.file || previewUrls[doc.key];
+              const docData = extractedDataMap[doc.key];
+              const docProgress = agentProgressMap[doc.key];
+              
+              return (
+                <div key={doc.key} className="space-y-4">
+                  {/* Preview Card */}
+                  <div className={`rounded-xl overflow-hidden transition-all duration-300 ${hasFile ? 'border-2 border-blue-300 shadow-md bg-white' : 'border-2 border-dashed border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white'}`}>
                     {hasFile ? (
                       <div className="relative">
-                        {/* Card Header */}
                         <div className={`bg-gradient-to-r ${doc.gradient} px-3 py-2 flex items-center justify-between`}>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm">{doc.icon}</span>
@@ -836,88 +789,88 @@ const KYCPortal = () => {
                           </div>
                           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
                         </div>
-
-                        {/* Preview Image */}
                         <div className="relative h-28 w-full bg-gray-50 flex justify-center group">
                           <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain group-hover:scale-105 transition-transform duration-300" />
-
-                          {/* Laser Scanning Effect */}
                           {uploading && activeAgent === 1 && (
                             <>
                               <div className="absolute inset-0 bg-[#F15840]/5 pointer-events-none"></div>
                               <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840,0_0_30px_#F15840] animate-scan-laser pointer-events-none"></div>
                             </>
                           )}
-
                           <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors shadow-sm border border-gray-100">
                             <XCircle className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center h-28 cursor-pointer group bg-white hover:bg-gray-50 transition-colors">
+                      <label className="flex flex-col items-center justify-center h-28 cursor-pointer group hover:bg-gray-50 transition-colors">
                         <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-[#FFF0ED] flex items-center justify-center mb-2 transition-colors">
                           <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#F15840] transition-colors" />
                         </div>
                         <span className="text-xs text-gray-500 font-medium group-hover:text-gray-700">{doc.label}</span>
-                        <span className="text-[9px] text-gray-300 mt-0.5">PDF, PNG, JPG • Max 10MB</span>
                         <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])} />
                       </label>
                     )}
                   </div>
-                );
-              })}
-            </div>
 
+                  {/* Extracted Data Card */}
+                  {docData && (
+                    <ExtractedDataCard 
+                      data={docData} 
+                      docType={extractedDocTypeMap[doc.key]} 
+                      documentId={pollingDocIds[doc.key]} 
+                      onRevalidate={() => setPollingDocIds({[doc.key]: pollingDocIds[doc.key]})} 
+                      agentProgress={docProgress || initialAgentProgress} 
+                    />
+                  )}
+
+                  {/* Final Decision Card */}
+                  {docProgress?.kycComplete?.status && docProgress.kycComplete.status !== 'idle' && (
+                    <div className={`rounded-xl p-5 border-2 flex flex-col shrink-0 shadow-sm transition-all duration-500
+                      ${docProgress.kycComplete.status === 'completed'
+                        ? 'bg-emerald-50 border-emerald-300'
+                        : docProgress.kycComplete.status === 'invalid'
+                        ? 'bg-red-50 border-red-300'
+                        : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
+                          <div className="flex items-center space-x-2">
+                            {docProgress.kycComplete.status === 'completed' && <CheckCircle className="w-6 h-6 text-emerald-500" />}
+                            {docProgress.kycComplete.status === 'invalid' && <XCircle className="w-6 h-6 text-red-500" />}
+                            <span className={`text-lg font-bold tracking-wide
+                              ${docProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
+                              : docProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
+                              {docProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
+                              : docProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {docProgress.agent3?.message && !docData?.reasoning && (
+                        <p className="text-xs text-red-500 mt-1.5">{docProgress.agent3.message}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            
             <button
               onClick={handleUpload}
               disabled={uploading || selectedCount === 0}
-              className={`mt-4 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
+              className={`mt-2 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
                 ${uploading || selectedCount === 0
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                  : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30 hover:-translate-y-0.5'}`}
+                  : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-md hover:-translate-y-0.5'}`}
             >
               <Cpu className="w-4 h-4" />
               <span>{uploading ? 'Pipeline Active...' : `Upload & Verify${selectedCount > 0 ? ` (${selectedCount})` : ''}`}</span>
             </button>
           </div>
-
-          {/* Extracted Data Card */}
-          {extractedData && (
-            <ExtractedDataCard data={extractedData} docType={extractedDocType} documentId={currentDocId} onRevalidate={() => setPollingDocIds({single: currentDocId})} agentProgress={agentProgress} />
-          )}
-
-          {/* Final Decision Card */}
-          {agentProgress?.kycComplete?.status && agentProgress.kycComplete.status !== 'idle' && (
-            <div className={`rounded-2xl p-5 border-2 flex flex-col shrink-0 shadow-lg transition-all duration-500
-              ${agentProgress.kycComplete.status === 'completed'
-                ? 'bg-emerald-50 border-emerald-300'
-                : agentProgress.kycComplete.status === 'invalid'
-                ? 'bg-red-50 border-red-300'
-                : 'bg-gray-50 border-gray-200'}`}>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
-                  <div className="flex items-center space-x-2">
-                    {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-7 h-7 text-emerald-500" />}
-                    {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-7 h-7 text-red-500" />}
-                    <span className={`text-xl font-bold tracking-wide
-                      ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
-                      : agentProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
-                      {agentProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
-                      : agentProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-                
-              {agentProgress.agent3?.message && !extractedData?.reasoning && (
-                <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
-              )}
-            </div>
-          )}
         </div>
       </div>
+</div>
       ) : (
         <div className="flex-1 overflow-auto bg-[#fafafa]">
           <UserManagementDashboard />
