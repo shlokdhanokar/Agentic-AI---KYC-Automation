@@ -100,7 +100,7 @@ const PipelineNode = ({ icon: Icon, title, status, active }) => {
 
 
 // === EXTRACTED DATA CARD WITH TYPEWRITER EFFECT ===
-const ExtractedDataCard = ({ data, docType, documentId, onRevalidate }) => {
+const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgress }) => {
   const [visibleFields, setVisibleFields] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
@@ -163,23 +163,22 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate }) => {
         </div>
         <div className="flex items-center space-x-3">
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase">{docLabel}</span>
-          <div className="flex items-center space-x-2 mr-4 bg-gray-50 border border-gray-200 rounded-lg p-1">
-            <button onClick={() => setAutoPilot(true)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${autoPilot ? 'bg-white shadow text-[#003a6b]' : 'text-gray-400 hover:text-gray-600'}`}>Auto-Pilot</button>
-            <button onClick={() => setAutoPilot(false)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${!autoPilot ? 'bg-white shadow text-[#F15840]' : 'text-gray-400 hover:text-gray-600'}`}>Review Mode</button>
-          </div>
+          
 
           {confidence && (
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${confidence > 90 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
               {confidence}% Confidence
             </span>
           )}
-          <button 
-            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-            disabled={isSaving}
-            className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase hover:bg-white/30 transition-colors flex items-center"
-          >
-            {isEditing ? (isSaving ? 'Saving...' : 'Save & Re-Verify') : <><Edit2 className="w-3 h-3 mr-1" /> Edit</>}
-          </button>
+{agentProgress?.kycComplete?.status === 'invalid' && (
+            <button 
+              onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+              disabled={isSaving}
+              className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#F15840] text-white uppercase hover:bg-[#d94a34] transition-colors flex items-center shadow-lg shadow-[#F15840]/30"
+            >
+              {isEditing ? (isSaving ? 'Saving...' : 'Save & Re-Verify') : <><Edit2 className="w-3 h-3 mr-1" /> Edit Data</>}
+            </button>
+          )}
         </div>
       </div>
 
@@ -566,10 +565,7 @@ const KYCPortal = () => {
         </div>
         
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 mr-4 bg-gray-50 border border-gray-200 rounded-lg p-1">
-            <button onClick={() => setAutoPilot(true)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${autoPilot ? 'bg-white shadow text-[#003a6b]' : 'text-gray-400 hover:text-gray-600'}`}>Auto-Pilot</button>
-            <button onClick={() => setAutoPilot(false)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${!autoPilot ? 'bg-white shadow text-[#F15840]' : 'text-gray-400 hover:text-gray-600'}`}>Review Mode</button>
-          </div>
+          
 
           <button
             onClick={handleDemoUpload}
@@ -721,7 +717,7 @@ const KYCPortal = () => {
 
           {/* Extracted Data Card */}
           {extractedData && (
-            <ExtractedDataCard data={extractedData} docType={extractedDocType} documentId={currentDocId} onRevalidate={() => setPollingDocIds({single: currentDocId})} />
+            <ExtractedDataCard data={extractedData} docType={extractedDocType} documentId={currentDocId} onRevalidate={() => setPollingDocIds({single: currentDocId})} agentProgress={agentProgress} />
           )}
 
           {/* Final Decision Card */}
@@ -747,28 +743,7 @@ const KYCPortal = () => {
                   </div>
                 </div>
                 
-                {/* Manual Override Buttons */}
-                {!autoPilot && (
-                  <div className="flex space-x-2">
-                    <button onClick={() => handleOverride('approve')} className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-[10px] font-bold uppercase transition-colors">
-                      <ThumbsUp className="w-3 h-3" /> <span>Force Approve</span>
-                    </button>
-                    <button onClick={() => handleOverride('reject')} className="flex items-center space-x-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-[10px] font-bold uppercase transition-colors">
-                      <ThumbsDown className="w-3 h-3" /> <span>Force Reject</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Reasoning Block */}
-              {extractedData?.reasoning && (
-                <div className="mt-2 bg-white/60 p-3 rounded-lg border border-gray-200/50">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center">
-                    <Activity className="w-3 h-3 mr-1" /> Chain of Thought
-                  </p>
-                  <p className="text-xs text-gray-600 italic">"{extractedData.reasoning}"</p>
-                </div>
-              )}
+                
               {agentProgress.agent3?.message && !extractedData?.reasoning && (
                 <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
               )}

@@ -601,7 +601,7 @@ def upload_demo():
         'verification_status': None,
         'kyc_completed': False,
         'logs': [
-            {'step': 'init', 'text': '[System] KYC Pipeline initialized', 'done': True}
+            {'step': 'init', 'text': '[Orchestrator Agent] KYC Pipeline initialized', 'done': True}
         ]
     })
 
@@ -708,35 +708,35 @@ def add_log(document_id, text, error=False):
 def process_document_with_logs(file_path, document_id):
     """Background processing with step-by-step logging for the Agent Console"""
     try:
-        add_log(document_id, '[Database] Loading customer records from Excel database...')
+        add_log(document_id, '[Database Agent] Loading customer records from Excel database...')
         database_sheets = load_database_sheets()
         if not database_sheets:
-            add_log(document_id, '[Database] ✗ Failed to load database', error=True)
+            add_log(document_id, '[Database Agent] ✗ Failed to load database', error=True)
             status = database.get_document_status(document_id) or {}
             status['status'] = 'error'
             database.save_document_status(document_id, status)
             return
-        add_log(document_id, '[Database] ✓ Customer database loaded successfully')
+        add_log(document_id, '[Database Agent] ✓ Customer database loaded successfully')
 
-        add_log(document_id, '[Azure Blob] Uploading document to cloud storage...')
+        add_log(document_id, '[Orchestrator Agent] Uploading document to cloud storage...')
         status = database.get_document_status(document_id) or {}
         status['status'] = 'uploading_to_blob'
         database.save_document_status(document_id, status)
         blob_url = upload_to_blob(file_path, container_name, connection_string)
-        add_log(document_id, '[Azure Blob] ✓ Document uploaded to Azure Blob Storage')
+        add_log(document_id, '[Orchestrator Agent] ✓ Document uploaded to Azure Blob Storage')
 
-        add_log(document_id, '[Form Recognizer] Sending document for OCR text extraction...')
+        add_log(document_id, '[Vision Agent] Sending document for OCR text extraction...')
         status = database.get_document_status(document_id)
         status['status'] = 'extracting_text'
         database.save_document_status(document_id, status)
         ocr_text = extract_ocr_text(blob_url, form_recognizer_endpoint, form_recognizer_key)
-        add_log(document_id, '[Form Recognizer] ✓ Raw text extracted from document')
+        add_log(document_id, '[Vision Agent] ✓ Raw text extracted from document')
 
-        add_log(document_id, '[AI Agent] Analyzing document type...')
+        add_log(document_id, '[Vision Agent] Analyzing document type...')
         doc_type = determine_document_type(ocr_text)
-        add_log(document_id, f'[AI Agent] ✓ Document classified as: {doc_type}')
+        add_log(document_id, f'[Vision Agent] ✓ Document classified as: {doc_type}')
 
-        add_log(document_id, '[Groq AI] Extracting structured fields from OCR text...')
+        add_log(document_id, '[Vision Agent] Extracting structured fields from OCR text...')
         status = database.get_document_status(document_id)
         status['status'] = 'extracting_structured_data'
         status['ocr_text'] = ocr_text # Save raw text for the chat interface
@@ -745,24 +745,24 @@ def process_document_with_logs(file_path, document_id):
         print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
         if structured_data:
             if "Error" in structured_data:
-                add_log(document_id, f'[Groq AI] ✗ API Error: {structured_data["Error"]}', error=True)
+                add_log(document_id, f'[Vision Agent] ✗ API Error: {structured_data["Error"]}', error=True)
             else:
                 fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
-                add_log(document_id, f'[Groq AI] ✓ Fields extracted: {fields}...')
+                add_log(document_id, f'[Vision Agent] ✓ Fields extracted: {fields}...')
         else:
-            add_log(document_id, '[Groq AI] ✓ Structured data extraction complete')
+            add_log(document_id, '[Vision Agent] ✓ Structured data extraction complete')
 
-        add_log(document_id, '[Verification Agent] Cross-referencing extracted data with database records...')
+        add_log(document_id, '[Database Agent] Cross-referencing extracted data with database records...')
         status = database.get_document_status(document_id)
         status['status'] = 'verifying_data'
         database.save_document_status(document_id, status)
         verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
         
         if verification_status == 'VALID':
-            add_log(document_id, '[Verification Agent] ✓ Document VALID — data matches database records')
+            add_log(document_id, '[Database Agent] ✓ Document VALID — data matches database records')
             
             # --- OFAC SCREENING STEP ---
-            add_log(document_id, '[OFAC Screening] Checking name against global sanctions lists...')
+            add_log(document_id, '[Compliance Agent] Checking name against global sanctions lists...')
             status['status'] = 'ofac_screening'
             database.save_document_status(document_id, status)
             
@@ -792,22 +792,22 @@ def process_document_with_logs(file_path, document_id):
                         
                         verification_status = 'INVALID'
                         verification_message = f'OFAC Screening Failed - Name matched against global sanctions watchlist: {match_type} [{category} / {crime}]'
-                        add_log(document_id, f'[OFAC Screening] ✗ CRITICAL MATCH FOUND: {sanctioned_name} - {category} / {crime}')
-                        add_log(document_id, f'[OFAC Screening] ✗ {verification_message}')
+                        add_log(document_id, f'[Compliance Agent] ✗ CRITICAL MATCH FOUND: {sanctioned_name} - {category} / {crime}')
+                        add_log(document_id, f'[Compliance Agent] ✗ {verification_message}')
                         match_found = True
                         break
                 
                 if not match_found:
-                    add_log(document_id, '[OFAC Screening] ✓ Name cleared (No sanctions matches found)')
+                    add_log(document_id, '[Compliance Agent] ✓ Name cleared (No sanctions matches found)')
             except Exception as e:
-                add_log(document_id, f'[OFAC Screening] ✗ Database Error: Could not load OFAC_SDN_LIST.csv - {str(e)}')
+                add_log(document_id, f'[Compliance Agent] ✗ Database Error: Could not load OFAC_SDN_LIST.csv - {str(e)}')
                 verification_status = 'INVALID'
                 verification_message = 'OFAC database unavailable'
             # ---------------------------
         else:
-            add_log(document_id, f'[Verification Agent] ✗ Document INVALID — {verification_message}')
+            add_log(document_id, f'[Database Agent] ✗ Document INVALID — {verification_message}')
 
-        add_log(document_id, '[System] Saving verification results to database...')
+        add_log(document_id, '[Orchestrator Agent] Saving verification results to database...')
         record_data = {
             "Passport Number": structured_data.get("Passport Number", "-"),
             "Driving License Number": structured_data.get("DLN No", "-"),
@@ -821,12 +821,12 @@ def process_document_with_logs(file_path, document_id):
             "Verification Status": verification_status
         }
         database.save_final_record(document_id, record_data)
-        add_log(document_id, '[System] ✓ Results saved to Redis')
+        add_log(document_id, '[Orchestrator Agent] ✓ Results saved to Redis')
 
         if verification_status == 'VALID':
-            add_log(document_id, '[KYC Decision] ✓ KYC APPROVED — All checks passed')
+            add_log(document_id, '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed')
         else:
-            add_log(document_id, f'[KYC Decision] ✗ KYC REJECTED — {verification_message}')
+            add_log(document_id, f'[Orchestrator Agent] ✗ KYC REJECTED — {verification_message}')
 
         status = database.get_document_status(document_id)
         status.update({
@@ -844,7 +844,7 @@ def process_document_with_logs(file_path, document_id):
             os.remove(file_path)
 
     except Exception as e:
-        add_log(document_id, f'[Error] ✗ Processing failed: {str(e)}', error=True)
+        add_log(document_id, f'[Orchestrator Agent] ✗ Processing failed: {str(e)}', error=True)
         status = database.get_document_status(document_id) or {}
         status.update({'status': 'error', 'message': str(e)})
         database.save_document_status(document_id, status)
@@ -929,7 +929,7 @@ User Question: {query}
         )
         answer = response.choices[0].message.content.strip()
         add_log(document_id, f"[Human Agent] {query}")
-        add_log(document_id, f"[AI Agent] {answer}")
+        add_log(document_id, f"[Vision Agent] {answer}")
         return jsonify({'success': True, 'answer': answer})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -981,10 +981,10 @@ def update_data(document_id):
     v_status, v_message = verify_extracted_data(current_data, doc_type, database_sheets)
     
     if v_status == 'VALID':
-        add_log(document_id, '[Verification Agent] ✓ Document VALID after manual update')
+        add_log(document_id, '[Database Agent] ✓ Document VALID after manual update')
         v_status = 'VALID'
     else:
-        add_log(document_id, f'[Verification Agent] ✗ Document REJECTED after manual update - {v_message}')
+        add_log(document_id, f'[Database Agent] ✗ Document REJECTED after manual update - {v_message}')
         v_status = 'INVALID'
         
     status.update({
