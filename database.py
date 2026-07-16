@@ -43,7 +43,12 @@ def save_final_record(document_id, record_data):
 def get_all_records():
     """Get all processed records for the dashboard."""
     records = redis_client.hgetall("all_records")
-    return [json.loads(val) for val in records.values()]
+    result = []
+    for doc_id, val in records.items():
+        record = json.loads(val)
+        record['id'] = doc_id
+        result.append(record)
+    return result
 
 def get_alerts():
     """Get all records that failed verification for the alerts page."""

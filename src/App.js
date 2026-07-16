@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, ThumbsUp, ThumbsDown
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, ThumbsUp, ThumbsDown, Users, Search, RefreshCw, LayoutDashboard
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -205,6 +205,129 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
             <span className="text-[10px] text-gray-400 font-mono">Extracting fields...</span>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+
+// === USER MANAGEMENT DASHBOARD ===
+const UserManagementDashboard = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/status`);
+      const data = await res.json();
+      setUsers(data || []);
+    } catch (e) {
+      console.error("Failed to fetch users:", e);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const filteredUsers = users.filter(u => {
+    const searchString = `${u['Given Name']} ${u['Surname']} ${u['Passport Number']} ${u['Driving License Number']} ${u['Identity Card Number']}`.toLowerCase();
+    return searchString.includes(searchTerm.toLowerCase());
+  });
+
+  return (
+    <div className="max-w-6xl mx-auto h-full flex flex-col p-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h2 className="text-3xl font-extrabold text-[#001f3f] tracking-tight">User Management</h2>
+          <p className="text-gray-500 text-sm mt-1">Audit log of all KYC applications and Agent Council decisions.</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search users or IDs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#F15840]/30 focus:border-[#F15840] w-64 shadow-sm"
+            />
+          </div>
+          <button onClick={fetchUsers} className="p-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/60 shadow-xl shadow-blue-900/5 flex-1 overflow-hidden flex flex-col">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4">Customer Name</th>
+                <th className="px-6 py-4">Document Type</th>
+                <th className="px-6 py-4">ID Number</th>
+                <th className="px-6 py-4">Agent Decision</th>
+                <th className="px-6 py-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading && users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-gray-400">Loading audit logs...</td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center text-gray-400">No records found.</td>
+                </tr>
+              ) : (
+                filteredUsers.map((user, i) => {
+                  const docType = user['Passport Number'] !== '-' ? 'Passport' : 
+                                  user['Driving License Number'] !== '-' ? 'Driving License' : 'Identity Card';
+                  const idNum = user['Passport Number'] !== '-' ? user['Passport Number'] : 
+                                user['Driving License Number'] !== '-' ? user['Driving License Number'] : user['Identity Card Number'];
+                  const status = user['Verification Status'];
+                  
+                  return (
+                    <tr key={i} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-gray-800">{user['Given Name']} {user['Surname']}</div>
+                        <div className="text-[10px] text-gray-400 font-mono mt-0.5">{user.id ? user.id.split('-')[0] : 'Historical'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md">{docType}</span>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-500">
+                        {idNum}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center space-x-1.5 text-xs font-bold px-2.5 py-1 rounded-full
+                          ${status === 'VALID' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                          : status === 'INVALID' ? 'bg-red-50 text-red-600 border border-red-200' 
+                          : 'bg-yellow-50 text-yellow-600 border border-yellow-200'}`}>
+                          {status === 'VALID' && <CheckCircle className="w-3.5 h-3.5" />}
+                          {status === 'INVALID' && <XCircle className="w-3.5 h-3.5" />}
+                          {!['VALID', 'INVALID'].includes(status) && <Activity className="w-3.5 h-3.5" />}
+                          <span>{status === 'VALID' ? 'APPROVED' : status === 'INVALID' ? 'REJECTED' : 'PROCESSING'}</span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="text-[10px] font-bold text-[#003a6b] hover:text-[#F15840] transition-colors uppercase tracking-wider">
+                          View Details &rarr;
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
