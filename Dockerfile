@@ -20,6 +20,7 @@ COPY app.py .
 COPY database.py .
 COPY start.sh .
 COPY DATABASE_DOCUMENTS.xlsx .
+COPY OFAC_SDN_LIST.csv .
 COPY ["Philip DL.PNG", "."]
 
 # Create uploads directory (used by the Flask app)
