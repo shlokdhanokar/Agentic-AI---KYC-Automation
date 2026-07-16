@@ -351,7 +351,7 @@ const KYCPortal = () => {
   const [pollingDocIds, setPollingDocIds] = useState({});
   const pollingRef = useRef(null);
 
-  const [agentProgress, setAgentProgress] = useState(null);
+  const [agentProgressMap, setAgentProgressMap] = useState({});
   const [extractedDataMap, setExtractedDataMap] = useState({});
   const [extractedDocTypeMap, setExtractedDocTypeMap] = useState({});
   const [chatInput, setChatInput] = useState('');
@@ -567,7 +567,7 @@ const KYCPortal = () => {
     else activeAgent = 1;
   }
   
-  const displayProgress = Object.values(agentProgressMap)[0] || initialAgentProgress;
+  const displayProgress = Object.values(agentProgressMap)[0] || null;
 
   // === RENDER: LOGIN ===
   if (!authenticated) {
@@ -820,7 +820,7 @@ const KYCPortal = () => {
                       docType={extractedDocTypeMap[doc.key]} 
                       documentId={pollingDocIds[doc.key]} 
                       onRevalidate={() => setPollingDocIds({[doc.key]: pollingDocIds[doc.key]})} 
-                      agentProgress={docProgress || initialAgentProgress} 
+                      agentProgress={docProgress || null} 
                     />
                   )}
 
