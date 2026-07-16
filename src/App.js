@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan, Settings, Bot, Sparkles, Loader2
+  Upload, CheckCircle, XCircle, Play, Lock, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -363,7 +363,7 @@ const KYCPortal = () => {
   const [extractedDocTypeMap, setExtractedDocTypeMap] = useState({});
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
-  const [currentDocId, setCurrentDocId] = useState(null);
+  const [currentDocId] = useState(null);
 
 
   const VALID_USERNAME = "shlok";
