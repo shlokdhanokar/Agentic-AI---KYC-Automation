@@ -738,15 +738,34 @@ def process_document_with_logs(file_path, document_id):
             import time
             time.sleep(1.5) # Simulate API latency
             
-            # Mock high-risk list
-            sanctions_list = ["OSAMA BIN LADEN", "PABLO ESCOBAR", "EL CHAPO", "KIM JONG UN", "VLADIMIR PUTIN"]
-            
-            if extracted_name and any(bad_actor in extracted_name for bad_actor in sanctions_list):
+            # Load the newly generated CSV list
+            try:
+                import pandas as pd
+                ofac_df = pd.read_csv('OFAC_SDN_LIST.csv')
+                
+                match_found = False
+                for index, row in ofac_df.iterrows():
+                    sanctioned_name = str(row['Primary_Name']).upper()
+                    aka = str(row['AKA']).upper() if pd.notna(row['AKA']) else ""
+                    
+                    if sanctioned_name in extracted_name or extracted_name in sanctioned_name or (aka and (aka in extracted_name or extracted_name in aka)):
+                        match_type = f"Primary Name ({sanctioned_name})" if sanctioned_name in extracted_name or extracted_name in sanctioned_name else f"Alias ({aka})"
+                        crime = row['Crime_Description']
+                        category = row['Category']
+                        
+                        verification_status = 'INVALID'
+                        verification_message = f'OFAC Screening Failed - Name matched against global sanctions watchlist: {match_type} [{category} / {crime}]'
+                        add_log(document_id, f'[OFAC Screening] ✗ CRITICAL MATCH FOUND: {sanctioned_name} - {category} / {crime}')
+                        add_log(document_id, f'[OFAC Screening] ✗ {verification_message}')
+                        match_found = True
+                        break
+                
+                if not match_found:
+                    add_log(document_id, '[OFAC Screening] ✓ Name cleared (No sanctions matches found)')
+            except Exception as e:
+                add_log(document_id, f'[OFAC Screening] ✗ Database Error: Could not load OFAC_SDN_LIST.csv - {str(e)}')
                 verification_status = 'INVALID'
-                verification_message = 'OFAC Screening Failed - Name matched against global sanctions watchlist'
-                add_log(document_id, f'[OFAC Screening] ✗ {verification_message}')
-            else:
-                add_log(document_id, '[OFAC Screening] ✓ Name cleared (No sanctions matches found)')
+                verification_message = 'OFAC database unavailable'
             # ---------------------------
         else:
             add_log(document_id, f'[Verification Agent] ✗ Document INVALID — {verification_message}')
