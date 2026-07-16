@@ -336,6 +336,7 @@ const UserManagementDashboard = () => {
 // === MAIN APPLICATION ===
 const KYCPortal = () => {
   const [authenticated, setAuthenticated] = useState(false);
+  const [currentTab, setCurrentTab] = useState('live_kyc');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -866,7 +867,7 @@ const KYCPortal = () => {
                     </span>
                   </div>
                 </div>
-                
+              </div>
                 
               {agentProgress.agent3?.message && !extractedData?.reasoning && (
                 <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
