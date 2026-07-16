@@ -341,7 +341,11 @@ def verify_passport_data(extracted_data, passport_df):
     db_given_name = str(record['Given Name']).strip().upper()
     db_surname = str(record['Surname']).strip().upper()
     
-    if given_name != db_given_name or surname != db_surname:
+    # Allow names to be swapped (Given Name <-> Surname)
+    is_exact_match = (given_name == db_given_name and surname == db_surname)
+    is_swapped_match = (given_name == db_surname and surname == db_given_name)
+    
+    if not (is_exact_match or is_swapped_match):
         return "INVALID", f"Name mismatch: Expected '{db_given_name} {db_surname}', got '{given_name} {surname}'"
     
     return "VALID", "All data matches database record"
@@ -397,7 +401,11 @@ def verify_dl_data(extracted_data, dl_df):
     db_given_name = str(record['Given Name']).strip().upper()
     db_surname = str(record['Surname']).strip().upper()
     
-    if given_name != db_given_name or surname != db_surname:
+    # Allow names to be swapped (Given Name <-> Surname)
+    is_exact_match = (given_name == db_given_name and surname == db_surname)
+    is_swapped_match = (given_name == db_surname and surname == db_given_name)
+    
+    if not (is_exact_match or is_swapped_match):
         return "INVALID", f"Name mismatch: Expected '{db_given_name} {db_surname}', got '{given_name} {surname}'"
     
     return "VALID", "All data matches database record"
@@ -451,7 +459,11 @@ def verify_id_data(extracted_data, id_df):
     db_given_name = str(record['Given Name']).strip().upper()
     db_surname = str(record['Surname']).strip().upper()
     
-    if given_name != db_given_name or surname != db_surname:
+    # Allow names to be swapped (Given Name <-> Surname)
+    is_exact_match = (given_name == db_given_name and surname == db_surname)
+    is_swapped_match = (given_name == db_surname and surname == db_given_name)
+    
+    if not (is_exact_match or is_swapped_match):
         return "INVALID", f"Name mismatch: Expected '{db_given_name} {db_surname}', got '{given_name} {surname}'"
     
     return "VALID", "All data matches database record"
