@@ -242,16 +242,35 @@ OCR Text:
     # Prepend the system instructions to the prompt
     full_prompt = "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY.\n\n" + prompt
     
-    try:
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=full_prompt,
-            config=types.GenerateContentConfig(temperature=0.2)
-        )
-        gpt_response = response.text
-    except Exception as e:
-        print(f"Gemini API Error: {e}")
-        gpt_response = f'{{"Error": "Gemini API failed: {str(e)}" }}'
+    import time
+    
+    max_retries = 3
+    base_delay = 2
+    
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.5-flash',
+                contents=full_prompt,
+                config=types.GenerateContentConfig(temperature=0.2)
+            )
+            gpt_response = response.text
+            break # Success, break out of retry loop
+        except Exception as e:
+            error_str = str(e)
+            print(f"Gemini API Error (Attempt {attempt+1}/{max_retries}): {error_str}")
+            
+            if '503' in error_str or '429' in error_str:
+                if attempt < max_retries - 1:
+                    sleep_time = base_delay * (2 ** attempt) # Exponential backoff: 2s, 4s, 8s
+                    print(f"Rate limited or overloaded. Retrying in {sleep_time} seconds...")
+                    time.sleep(sleep_time)
+                else:
+                    gpt_response = f'{{"Error": "Gemini API failed after retries: {error_str}" }}'
+            else:
+                # If it's a different error (e.g., 400 Bad Request), don't retry
+                gpt_response = f'{{"Error": "Gemini API failed: {error_str}" }}'
+                break
     
     try:
         # Strip markdown formatting if Gemini included it
