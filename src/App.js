@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, ThumbsUp, ThumbsDown, Users, Search, RefreshCw, LayoutDashboard
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -354,8 +354,6 @@ const KYCPortal = () => {
   const [agentProgress, setAgentProgress] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
   const [extractedDocType, setExtractedDocType] = useState(null);
-
-  const [autoPilot, setAutoPilot] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const [currentDocId, setCurrentDocId] = useState(null);
@@ -455,24 +453,6 @@ const KYCPortal = () => {
       console.error(err);
     }
     setIsChatting(false);
-  };
-
-  const handleOverride = async (action) => {
-    if (!currentDocId) return;
-    try {
-      const res = await fetch(`${API_URL}/override/${currentDocId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action })
-      });
-      const data = await res.json();
-      if (data.success) {
-        // Trigger a re-poll to catch the new state
-        setPollingDocIds({ single: currentDocId });
-      }
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   const handleLogin = () => {
