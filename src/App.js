@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -98,6 +98,60 @@ const PipelineNode = ({ icon: Icon, title, status, active }) => {
   );
 };
 
+// === EXTRACTED DATA CARD WITH TYPEWRITER EFFECT ===
+const ExtractedDataCard = ({ data, docType }) => {
+  const [visibleFields, setVisibleFields] = useState(0);
+  const entries = data ? Object.entries(data).filter(([k, v]) => v && v !== '-') : [];
+
+  useEffect(() => {
+    if (entries.length === 0) return;
+    setVisibleFields(0);
+    const timer = setInterval(() => {
+      setVisibleFields(prev => {
+        if (prev >= entries.length) {
+          clearInterval(timer);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 300);
+    return () => clearInterval(timer);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!data || entries.length === 0) return null;
+
+  const docLabel = docType === 'driving_license' ? 'Driving License' : docType === 'passport' ? 'Passport' : 'ID Card';
+
+  return (
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden shrink-0">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-[#001f3f] to-[#003a6b] px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <User className="w-4 h-4 text-white/80" />
+          <span className="text-white font-semibold text-xs tracking-wide">Extracted Identity Data</span>
+        </div>
+        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase">{docLabel}</span>
+      </div>
+
+      {/* Fields */}
+      <div className="p-4 space-y-2">
+        {entries.slice(0, visibleFields).map(([key, value], i) => (
+          <div key={key} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50/80 border border-gray-100 animate-fade-in">
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{key}</span>
+            <span className="text-xs text-gray-800 font-semibold font-mono">{value}</span>
+          </div>
+        ))}
+        {visibleFields < entries.length && (
+          <div className="flex items-center space-x-2 py-1.5 px-3">
+            <div className="w-2 h-2 rounded-full bg-[#F15840] animate-pulse"></div>
+            <span className="text-[10px] text-gray-400 font-mono">Extracting fields...</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // === MAIN APPLICATION ===
 const KYCPortal = () => {
   const [authenticated, setAuthenticated] = useState(false);
@@ -116,6 +170,8 @@ const KYCPortal = () => {
   const pollingRef = useRef(null);
 
   const [agentProgress, setAgentProgress] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
+  const [extractedDocType, setExtractedDocType] = useState(null);
 
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
@@ -165,6 +221,11 @@ const KYCPortal = () => {
             agent3: { name: "OFAC Screening", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : (latestResult.message?.includes('OFAC') ? "invalid" : "idle"), message: latestResult.message },
             kycComplete: { name: "KYC Decision", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid" }
           });
+          // Store extracted document data for the ID Card display
+          if (latestResult.document_data) {
+            setExtractedData(latestResult.document_data);
+            setExtractedDocType(latestResult.document_type || 'unknown');
+          }
         }
       }
     };
@@ -512,6 +573,11 @@ const KYCPortal = () => {
               <span>{uploading ? 'Pipeline Active...' : `Upload & Verify${selectedCount > 0 ? ` (${selectedCount})` : ''}`}</span>
             </button>
           </div>
+
+          {/* Extracted Data Card */}
+          {extractedData && (
+            <ExtractedDataCard data={extractedData} docType={extractedDocType} />
+          )}
 
           {/* Final Decision Card */}
           {agentProgress?.kycComplete?.status && agentProgress.kycComplete.status !== 'idle' && (
