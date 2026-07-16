@@ -194,6 +194,8 @@ Extract the following fields using these EXACT JSON keys:
 - "Date of Expiration"
 - "Sex"
 - "Nationality"
+- "confidence_score" (an integer from 0-100 indicating extraction confidence)
+- "reasoning" (a short string explaining your confidence and any potential issues)
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
 Return the result as a JSON object with keys exactly as listed above.
@@ -212,6 +214,8 @@ Extract the following fields using these EXACT JSON keys:
 - "Sex"
 - "DI Expiry"
 - "Address"
+- "confidence_score" (an integer from 0-100 indicating extraction confidence)
+- "reasoning" (a short string explaining your confidence and any potential issues)
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
 Return the result as a JSON object with keys exactly as listed above.
@@ -230,6 +234,8 @@ Extract the following fields using these EXACT JSON keys:
 - "Sex"
 - "Date of Expiry"
 - "Address"
+- "confidence_score" (an integer from 0-100 indicating extraction confidence)
+- "reasoning" (a short string explaining your confidence and any potential issues)
 
 IMPORTANT: Make sure ALL dates are in "DD/MM/YYYY" format (e.g., "02/07/1977").
 Return the result as a JSON object with keys exactly as listed above.
@@ -733,6 +739,7 @@ def process_document_with_logs(file_path, document_id):
         add_log(document_id, '[Groq AI] Extracting structured fields from OCR text...')
         status = database.get_document_status(document_id)
         status['status'] = 'extracting_structured_data'
+        status['ocr_text'] = ocr_text # Save raw text for the chat interface
         database.save_document_status(document_id, status)
         structured_data = extract_structured_fields(ocr_text, doc_type)
         print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
@@ -883,6 +890,112 @@ def serve(path):
         return send_from_directory(os.path.join(app.root_path, 'build'), path)
     else:
         return send_from_directory(os.path.join(app.root_path, 'build'), 'index.html')
+
+@app.route('/agent-chat/<document_id>', methods=['POST'])
+def agent_chat(document_id):
+    req_data = request.get_json()
+    query = req_data.get('query')
+    if not query:
+        return jsonify({'success': False, 'message': 'No query provided'}), 400
+        
+    info = database.get_document_status(document_id)
+    if not info:
+        return jsonify({'success': False, 'message': 'Document not found'}), 404
+        
+    ocr_text = info.get('ocr_text', '')
+    if not ocr_text:
+        return jsonify({'success': False, 'message': 'OCR text not available for this document'}), 400
+        
+    prompt = f"""You are an expert KYC verification agent reviewing a document. 
+The user is asking you a question about the document.
+Base your answer ONLY on the following OCR text extracted from the document.
+If the information is not in the text, say you cannot determine it from the document.
+
+OCR Text:
+{ocr_text}
+
+User Question: {query}
+"""
+    try:
+        client = Groq(api_key=groq_api_key)
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a professional, highly precise KYC verification assistant. Keep your answers concise, direct, and factual based only on the provided text."},
+                {"role": "user", "content": prompt}
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.1,
+            max_tokens=256
+        )
+        answer = response.choices[0].message.content.strip()
+        add_log(document_id, f"[Human Agent] {query}")
+        add_log(document_id, f"[AI Agent] {answer}")
+        return jsonify({'success': True, 'answer': answer})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/override/<document_id>', methods=['POST'])
+def override_decision(document_id):
+    req_data = request.get_json()
+    action = req_data.get('action') # 'approve' or 'reject'
+    
+    status = database.get_document_status(document_id)
+    if not status:
+        return jsonify({'success': False, 'message': 'Document not found'}), 404
+        
+    verification_status = 'VALID' if action == 'approve' else 'INVALID'
+    message = f"Manual Override: {action.upper()}"
+    
+    add_log(document_id, f"[Human Agent] ⚠ MANUALLY TRIGGERED {action.upper()} OVERRIDE")
+    
+    status.update({
+        'status': 'completed',
+        'message': message,
+        'verification_status': verification_status,
+        'kyc_completed': verification_status == 'VALID',
+    })
+    database.save_document_status(document_id, status)
+    
+    return jsonify({'success': True, 'status': status})
+
+@app.route('/update-data/<document_id>', methods=['POST'])
+def update_data(document_id):
+    req_data = request.get_json()
+    updated_fields = req_data.get('data')
+    
+    status = database.get_document_status(document_id)
+    if not status:
+        return jsonify({'success': False, 'message': 'Document not found'}), 404
+        
+    doc_type = status.get('document_type', 'unknown')
+    current_data = status.get('document_data', {})
+    
+    # Merge updates
+    current_data.update(updated_fields)
+    status['document_data'] = current_data
+    
+    add_log(document_id, f"[Human Agent] ⚠ MANUALLY UPDATED EXTRACTED DATA")
+    
+    # Re-verify against database sheets
+    database_sheets = load_database_sheets()
+    v_status, v_message = verify_extracted_data(current_data, doc_type, database_sheets)
+    
+    if v_status == 'VALID':
+        add_log(document_id, '[Verification Agent] ✓ Document VALID after manual update')
+        v_status = 'VALID'
+    else:
+        add_log(document_id, f'[Verification Agent] ✗ Document REJECTED after manual update - {v_message}')
+        v_status = 'INVALID'
+        
+    status.update({
+        'status': 'completed',
+        'message': v_message,
+        'verification_status': v_status,
+        'kyc_completed': v_status == 'VALID',
+    })
+    database.save_document_status(document_id, status)
+    
+    return jsonify({'success': True, 'status': status})
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

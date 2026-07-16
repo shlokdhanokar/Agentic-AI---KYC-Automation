@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -98,14 +98,25 @@ const PipelineNode = ({ icon: Icon, title, status, active }) => {
   );
 };
 
+
 // === EXTRACTED DATA CARD WITH TYPEWRITER EFFECT ===
-const ExtractedDataCard = ({ data, docType }) => {
+const ExtractedDataCard = ({ data, docType, documentId, onRevalidate }) => {
   const [visibleFields, setVisibleFields] = useState(0);
-  const entries = data ? Object.entries(data).filter(([k, v]) => v && v !== '-') : [];
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Filter out confidence and reasoning from display
+  const displayData = data ? Object.fromEntries(
+    Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
+  ) : {};
+  
+  const entries = Object.entries(displayData);
 
   useEffect(() => {
     if (entries.length === 0) return;
     setVisibleFields(0);
+    setEditedData(displayData);
     const timer = setInterval(() => {
       setVisibleFields(prev => {
         if (prev >= entries.length) {
@@ -114,13 +125,33 @@ const ExtractedDataCard = ({ data, docType }) => {
         }
         return prev + 1;
       });
-    }, 300);
+    }, 150);
     return () => clearInterval(timer);
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/update-data/${documentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: editedData })
+      });
+      const result = await res.json();
+      if (result.success) {
+        setIsEditing(false);
+        if (onRevalidate) onRevalidate();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsSaving(false);
+  };
 
   if (!data || entries.length === 0) return null;
 
   const docLabel = docType === 'driving_license' ? 'Driving License' : docType === 'passport' ? 'Passport' : 'ID Card';
+  const confidence = data.confidence_score;
 
   return (
     <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden shrink-0">
@@ -130,18 +161,46 @@ const ExtractedDataCard = ({ data, docType }) => {
           <User className="w-4 h-4 text-white/80" />
           <span className="text-white font-semibold text-xs tracking-wide">Extracted Identity Data</span>
         </div>
-        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase">{docLabel}</span>
+        <div className="flex items-center space-x-3">
+          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase">{docLabel}</span>
+          <div className="flex items-center space-x-2 mr-4 bg-gray-50 border border-gray-200 rounded-lg p-1">
+            <button onClick={() => setAutoPilot(true)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${autoPilot ? 'bg-white shadow text-[#003a6b]' : 'text-gray-400 hover:text-gray-600'}`}>Auto-Pilot</button>
+            <button onClick={() => setAutoPilot(false)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${!autoPilot ? 'bg-white shadow text-[#F15840]' : 'text-gray-400 hover:text-gray-600'}`}>Review Mode</button>
+          </div>
+
+          {confidence && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${confidence > 90 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+              {confidence}% Confidence
+            </span>
+          )}
+          <button 
+            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+            disabled={isSaving}
+            className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white uppercase hover:bg-white/30 transition-colors flex items-center"
+          >
+            {isEditing ? (isSaving ? 'Saving...' : 'Save & Re-Verify') : <><Edit2 className="w-3 h-3 mr-1" /> Edit</>}
+          </button>
+        </div>
       </div>
 
       {/* Fields */}
       <div className="p-4 space-y-2">
-        {entries.slice(0, visibleFields).map(([key, value], i) => (
+        {entries.slice(0, visibleFields).map(([key, value]) => (
           <div key={key} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50/80 border border-gray-100 animate-fade-in">
             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{key}</span>
-            <span className="text-xs text-gray-800 font-semibold font-mono">{value}</span>
+            {isEditing ? (
+              <input 
+                type="text" 
+                value={editedData[key] || ''} 
+                onChange={(e) => setEditedData({...editedData, [key]: e.target.value})}
+                className="text-xs text-gray-800 font-semibold font-mono bg-white border border-blue-300 rounded px-2 py-0.5 w-1/2 focus:outline-none focus:border-[#F15840]"
+              />
+            ) : (
+              <span className="text-xs text-gray-800 font-semibold font-mono">{value}</span>
+            )}
           </div>
         ))}
-        {visibleFields < entries.length && (
+        {visibleFields < entries.length && !isEditing && (
           <div className="flex items-center space-x-2 py-1.5 px-3">
             <div className="w-2 h-2 rounded-full bg-[#F15840] animate-pulse"></div>
             <span className="text-[10px] text-gray-400 font-mono">Extracting fields...</span>
@@ -173,6 +232,12 @@ const KYCPortal = () => {
   const [extractedData, setExtractedData] = useState(null);
   const [extractedDocType, setExtractedDocType] = useState(null);
 
+  const [autoPilot, setAutoPilot] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatting, setIsChatting] = useState(false);
+  const [currentDocId, setCurrentDocId] = useState(null);
+
+
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
 
@@ -185,6 +250,7 @@ const KYCPortal = () => {
       let combinedLogs = [];
       let allDone = true;
       let latestResult = null;
+      let latestDocId = null;
 
       for (const [docKey, docId] of entries) {
         try {
@@ -201,6 +267,7 @@ const KYCPortal = () => {
           }
           if (data.status === 'completed' || data.status === 'error') {
             latestResult = data;
+            latestDocId = docId;
           }
         } catch (err) {
           console.error('Polling error:', err);
@@ -225,6 +292,7 @@ const KYCPortal = () => {
           if (latestResult.document_data) {
             setExtractedData(latestResult.document_data);
             setExtractedDocType(latestResult.document_type || 'unknown');
+            setCurrentDocId(latestDocId);
           }
         }
       }
@@ -237,6 +305,52 @@ const KYCPortal = () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [pollingDocIds]);
+
+  
+  const handleChat = async (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !currentDocId) return;
+    
+    const query = chatInput;
+    setChatInput('');
+    setIsChatting(true);
+    
+    // Add user message to logs locally first for immediate feedback
+    setAgentLogs(prev => [...prev, { text: `[Human Agent] ${query}`, time: new Date().toLocaleTimeString(), color: 'text-blue-400' }]);
+    
+    try {
+      const res = await fetch(`${API_URL}/agent-chat/${currentDocId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAgentLogs(prev => [...prev, { text: `[AI Agent] ${data.answer}`, time: new Date().toLocaleTimeString(), color: 'text-fuchsia-400' }]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setIsChatting(false);
+  };
+
+  const handleOverride = async (action) => {
+    if (!currentDocId) return;
+    try {
+      const res = await fetch(`${API_URL}/override/${currentDocId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Trigger a re-poll to catch the new state
+        setPollingDocIds({ single: currentDocId });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleLogin = () => {
     setAuthError('');
@@ -450,7 +564,13 @@ const KYCPortal = () => {
           <div className="h-6 w-px bg-gray-200"></div>
           <span className="text-[#001f3f] font-bold tracking-wide text-sm">AGENTIC KYC PIPELINE</span>
         </div>
+        
         <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 mr-4 bg-gray-50 border border-gray-200 rounded-lg p-1">
+            <button onClick={() => setAutoPilot(true)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${autoPilot ? 'bg-white shadow text-[#003a6b]' : 'text-gray-400 hover:text-gray-600'}`}>Auto-Pilot</button>
+            <button onClick={() => setAutoPilot(false)} className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition-colors ${!autoPilot ? 'bg-white shadow text-[#F15840]' : 'text-gray-400 hover:text-gray-600'}`}>Review Mode</button>
+          </div>
+
           <button
             onClick={handleDemoUpload}
             disabled={uploading}
@@ -489,6 +609,31 @@ const KYCPortal = () => {
               <PipelineNode icon={ShieldAlert} title="OFAC" status={agentProgress?.agent3?.status} active={activeAgent === 3} />
               <PipelineNode icon={CheckCircle} title="Decision" status={agentProgress?.kycComplete?.status} active={activeAgent === 4 || (agentProgress?.kycComplete?.status && agentProgress?.kycComplete?.status !== 'idle')} />
             </div>
+          </div>
+
+
+          {/* Agentic Chat UI */}
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-gray-200/80 shadow-sm shrink-0">
+            <form onSubmit={handleChat} className="flex items-center space-x-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20 shrink-0">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <input 
+                type="text" 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={currentDocId ? "Ask the AI Agent about this document..." : "Pipeline idle..."}
+                disabled={!currentDocId || isChatting}
+                className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40 focus:border-fuchsia-400 transition-all placeholder-gray-400"
+              />
+              <button 
+                type="submit" 
+                disabled={!currentDocId || isChatting || !chatInput.trim()}
+                className="p-2.5 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-600 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
           </div>
 
           {/* Terminal Console */}
@@ -576,36 +721,60 @@ const KYCPortal = () => {
 
           {/* Extracted Data Card */}
           {extractedData && (
-            <ExtractedDataCard data={extractedData} docType={extractedDocType} />
+            <ExtractedDataCard data={extractedData} docType={extractedDocType} documentId={currentDocId} onRevalidate={() => setPollingDocIds({single: currentDocId})} />
           )}
 
           {/* Final Decision Card */}
           {agentProgress?.kycComplete?.status && agentProgress.kycComplete.status !== 'idle' && (
-            <div className={`rounded-2xl p-5 border-2 flex items-center justify-between shrink-0 shadow-lg transition-all duration-500
+            <div className={`rounded-2xl p-5 border-2 flex flex-col shrink-0 shadow-lg transition-all duration-500
               ${agentProgress.kycComplete.status === 'completed'
                 ? 'bg-emerald-50 border-emerald-300'
                 : agentProgress.kycComplete.status === 'invalid'
                 ? 'bg-red-50 border-red-300'
                 : 'bg-gray-50 border-gray-200'}`}>
-              <div>
-                <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
-                <div className="flex items-center space-x-2">
-                  {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-7 h-7 text-emerald-500" />}
-                  {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-7 h-7 text-red-500" />}
-                  <span className={`text-xl font-bold tracking-wide
-                    ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
-                    : agentProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
-                    {agentProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
-                    : agentProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
-                  </span>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
+                  <div className="flex items-center space-x-2">
+                    {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-7 h-7 text-emerald-500" />}
+                    {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-7 h-7 text-red-500" />}
+                    <span className={`text-xl font-bold tracking-wide
+                      ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
+                      : agentProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
+                      {agentProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
+                      : agentProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
+                    </span>
+                  </div>
                 </div>
-                {agentProgress.agent3?.message && (
-                  <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
+                
+                {/* Manual Override Buttons */}
+                {!autoPilot && (
+                  <div className="flex space-x-2">
+                    <button onClick={() => handleOverride('approve')} className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-[10px] font-bold uppercase transition-colors">
+                      <ThumbsUp className="w-3 h-3" /> <span>Force Approve</span>
+                    </button>
+                    <button onClick={() => handleOverride('reject')} className="flex items-center space-x-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-[10px] font-bold uppercase transition-colors">
+                      <ThumbsDown className="w-3 h-3" /> <span>Force Reject</span>
+                    </button>
+                  </div>
                 )}
               </div>
+              
+              {/* Reasoning Block */}
+              {extractedData?.reasoning && (
+                <div className="mt-2 bg-white/60 p-3 rounded-lg border border-gray-200/50">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 flex items-center">
+                    <Activity className="w-3 h-3 mr-1" /> Chain of Thought
+                  </p>
+                  <p className="text-xs text-gray-600 italic">"{extractedData.reasoning}"</p>
+                </div>
+              )}
+              {agentProgress.agent3?.message && !extractedData?.reasoning && (
+                <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
+              )}
             </div>
           )}
-        </div>
+</div>
       </div>
     </div>
   );
