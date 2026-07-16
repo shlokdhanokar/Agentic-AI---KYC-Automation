@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KYC Document Verification Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            max-width: 800px;
+            width: 100%;
+            min-height: 600px;
+            position: relative;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20"><defs><radialGradient id="a" cx="50%" cy="0%" r="100%"><stop offset="0%" stop-color="white" stop-opacity="0.1"/><stop offset="100%" stop-color="white" stop-opacity="0"/></radialGradient></defs><ellipse cx="50" cy="0" rx="50" ry="20" fill="url(%23a)"/></svg>') no-repeat center top;
+            background-size: 100% 100%;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        .upload-section {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .upload-area {
+            border: 3px dashed #e0e6ed;
+            border-radius: 15px;
+            padding: 60px 40px;
+            background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            border-color: #4facfe;
+            background: linear-gradient(145deg, #f0f8ff, #e6f3ff);
+            transform: translateY(-2px);
+        }
+
+        .upload-area.dragover {
+            border-color: #00f2fe;
+            background: linear-gradient(145deg, #e6f9ff, #ccf2ff);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #4facfe;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #495057;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .upload-subtext {
+            color: #6c757d;
+            font-size: 0.95rem;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .file-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+            border-left: 4px solid #4facfe;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+
+        .file-size {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .process-btn {
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(86, 171, 47, 0.3);
+            display: none;
+        }
+
+        .process-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(86, 171, 47, 0.4);
+        }
+
+        .process-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .results h3 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .result-value {
+            color: #6c757d;
+            text-align: right;
+        }
+
+        .status-badge {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-valid {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-invalid {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-error {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .supported-formats {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .format-list {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .format-item {
+            background: #e9ecef;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+
+            .header {
+                padding: 30px 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 40px 20px;
+            }
+
+            .upload-area {
+                padding: 40px 20px;
+            }
+
+            .upload-icon {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ KYC Portal</h1>
+            <p>Secure Document Verification System</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Upload Your Document</div>
+                    <div class="upload-subtext">Drag and drop your document here or click to browse</div>
+                    <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+                    <input type="file" id="fileInput" class="file-input" accept=".jpg,.jpeg,.png,.pdf" multiple="false">
+                </div>
+                
+                <div class="file-info" id="fileInfo">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                
+                <button class="process-btn" id="processBtn">🚀 Process Document</button>
+            </div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing your document... This may take a few moments.</p>
+            </div>
+            
+            <div class="results" id="results">
+                <h3>📊 Verification Results</h3>
+                <div id="resultContent"></div>
+            </div>
+            
+            <div class="supported-formats">
+                <p><strong>Supported Documents:</strong> Passport • Driving License • Identity Card</p>
+                <div class="format-list">
+                    <div class="format-item">JPG</div>
+                    <div class="format-item">PNG</div>
+                    <div class="format-item">PDF</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const processBtn = document.getElementById('processBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const resultContent = document.getElementById('resultContent');
+
+        let selectedFile = null;
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        function handleFileSelect(file) {
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Please select a valid file type (JPG, PNG, or PDF)');
+                return;
+            }
+
+            // Validate file size (max 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.style.display = 'block';
+            processBtn.style.display = 'inline-block';
+            results.style.display = 'none';
+        }
+
+        // Process document
+        processBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            processBtn.disabled = true;
+            loading.style.display = 'block';
+            results.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('document', selectedFile);
+
+            try {
+                const response = await fetch('/process-document', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                loading.style.display = 'none';
+                processBtn.disabled = false;
+                
+                if (result.success) {
+                    displayResults(result.data);
+                } else {
+                    displayError(result.error || 'An error occurred while processing the document.');
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                processBtn.disabled = false;
+                displayError('Network error. Please try again.');
+                console.error('Error:', error);
+            }
+        });
+
+        function displayResults(data) {
+            let content = '';
+            
+            // Document type
+            if (data.document_type) {
+                content += `
+                    <div class="result-item">
+                        <div class="result-label">Document Type</div>
+                        <div class="result-value">${data.document_type.replace('_', ' ').toUpperCase()}</div>
+                    </div>
+                `;
+            }
+
+            // Extracted fields
+            if (data.extracted_data) {
+                Object.entries(data.extracted_data).forEach(([key, value]) => {
+                    if (value && value !== '-') {
+                        content += `
+                            <div class="result-item">
+                                <div class="result-label">${key}</div>
+                                <div class="result-value">${value}</div>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            // Verification status
+            if (data.verification_status) {
+                const statusClass = data.verification_status.toLowerCase() === 'valid' ? 'status-valid' : 
+                                  data.verification_status.toLowerCase() === 'invalid' ? 'status-invalid' : 'status-error';
+                
+                content += `
+                    <div class="result-item">
+                        <div class="result-label">Verification Status</div>
+                        <div class="result-value">
+                            <span class="status-badge ${statusClass}">${data.verification_status}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Verification message
+            if (data.verification_message) {
+                content += `
+                    <div class="result-item">
+                        <div class="result-label">Details</div>
+                        <div class="result-value">${data.verification_message}</div>
+                    </div>
+                `;
+            }
+
+            resultContent.innerHTML = content;
+            results.style.display = 'block';
+        }
+
+        function displayError(message) {
+            resultContent.innerHTML = `
+                <div class="result-item">
+                    <div class="result-label">Error</div>
+                    <div class="result-value">
+                        <span class="status-badge status-error">ERROR</span>
+                    </div>
+                </div>
+                <div class="result-item">
+                    <div class="result-label">Message</div>
+                    <div class="result-value">${message}</div>
+                </div>
+            `;
+            results.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

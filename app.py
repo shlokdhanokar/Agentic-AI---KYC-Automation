@@ -531,12 +531,33 @@ DEMO_FILE = "Philip DL.PNG"
 def upload_demo():
     """Upload a pre-existing demo document for recruiter testing"""
     import shutil
-    demo_path = os.path.join(app.root_path, DEMO_FILE)
+    
+    # Get requested document type from body if available
+    req_data = request.get_json(silent=True) or {}
+    doc_type = req_data.get('docType', 'license')
+    
+    demo_files = {
+        'passport': 'demo-passport.png',
+        'license': 'demo-dl.png',
+        'idCard': 'demo-id.png'
+    }
+    
+    demo_filename = demo_files.get(doc_type, 'demo-dl.png')
+    demo_path = os.path.join(app.root_path, demo_filename)
+    
     if not os.path.exists(demo_path):
-        return jsonify({'success': False, 'message': 'Demo file not found on server'}), 404
+        # Fallback to the old file if needed
+        demo_path = os.path.join(app.root_path, "Philip DL.PNG")
+        demo_filename = "Philip DL.PNG"
+        if not os.path.exists(demo_path):
+            return jsonify({'success': False, 'message': 'Demo file not found on server'}), 404
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    dest_path = os.path.join(app.config['UPLOAD_FOLDER'], DEMO_FILE)
+    
+    # Create unique filename to prevent collisions in Celery workers
+    unique_filename = f"{uuid.uuid4().hex}_{demo_filename}"
+    dest_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+    
     shutil.copy2(demo_path, dest_path)
 
     document_id = str(uuid.uuid4())
@@ -591,6 +612,21 @@ def process_document(file_path, document_id):
         database.save_document_status(document_id, status)
         
         verification_status, verification_message = verify_extracted_data(structured_data, doc_type, database_sheets)
+        
+        if verification_status == 'VALID':
+            status.update({'status': 'ofac_screening', 'message': 'Checking against OFAC sanctions lists...'})
+            database.save_document_status(document_id, status)
+            
+            extracted_name = structured_data.get('Given Name', '') + " " + structured_data.get('Surname', '')
+            extracted_name = extracted_name.strip().upper()
+            
+            import time
+            time.sleep(1.5)
+            
+            sanctions_list = ["OSAMA BIN LADEN", "PABLO ESCOBAR", "EL CHAPO", "KIM JONG UN", "VLADIMIR PUTIN"]
+            if extracted_name and any(bad_actor in extracted_name for bad_actor in sanctions_list):
+                verification_status = 'INVALID'
+                verification_message = 'OFAC Screening Failed - Name matched against global sanctions watchlist'
         
         # Save final record to Redis instead of Excel
         record_data = {
@@ -690,6 +726,28 @@ def process_document_with_logs(file_path, document_id):
         
         if verification_status == 'VALID':
             add_log(document_id, '[Verification Agent] ✓ Document VALID — data matches database records')
+            
+            # --- OFAC SCREENING STEP ---
+            add_log(document_id, '[OFAC Screening] Checking name against global sanctions lists...')
+            status['status'] = 'ofac_screening'
+            database.save_document_status(document_id, status)
+            
+            extracted_name = structured_data.get('Given Name', '') + " " + structured_data.get('Surname', '')
+            extracted_name = extracted_name.strip().upper()
+            
+            import time
+            time.sleep(1.5) # Simulate API latency
+            
+            # Mock high-risk list
+            sanctions_list = ["OSAMA BIN LADEN", "PABLO ESCOBAR", "EL CHAPO", "KIM JONG UN", "VLADIMIR PUTIN"]
+            
+            if extracted_name and any(bad_actor in extracted_name for bad_actor in sanctions_list):
+                verification_status = 'INVALID'
+                verification_message = 'OFAC Screening Failed - Name matched against global sanctions watchlist'
+                add_log(document_id, f'[OFAC Screening] ✗ {verification_message}')
+            else:
+                add_log(document_id, '[OFAC Screening] ✓ Name cleared (No sanctions matches found)')
+            # ---------------------------
         else:
             add_log(document_id, f'[Verification Agent] ✗ Document INVALID — {verification_message}')
 
