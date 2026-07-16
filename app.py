@@ -9,7 +9,8 @@ from werkzeug.utils import secure_filename
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import pandas as pd
 import re
@@ -49,7 +50,6 @@ form_recognizer_key = os.environ.get("AZURE_FORM_RECOGNIZER_KEY")
 # Google Gemini Configuration
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 if gemini_api_key:
-    genai.configure(api_key=gemini_api_key)
 
 # Database file path
 DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
@@ -236,15 +236,16 @@ OCR Text:
 """
 
     # Using Gemini
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=gemini_api_key)
     
     # Prepend the system instructions to the prompt
     full_prompt = "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY.\n\n" + prompt
     
     try:
-        response = model.generate_content(
-            full_prompt,
-            generation_config=genai.types.GenerationConfig(temperature=0.2)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=full_prompt,
+            config=types.GenerateContentConfig(temperature=0.2)
         )
         gpt_response = response.text
     except Exception as e:

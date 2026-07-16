@@ -2,7 +2,7 @@ Flask
 flask-cors
 azure-storage-blob
 azure-ai-formrecognizer
-google-generativeai
+google-genai
 python-dotenv
 pandas
 celery
