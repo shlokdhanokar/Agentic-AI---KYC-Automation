@@ -334,6 +334,13 @@ const UserManagementDashboard = () => {
 };
 
 // === MAIN APPLICATION ===
+const initialAgentProgress = {
+  agent1: { name: "OCR Processing", progress: 0, status: "idle" },
+  agent2: { name: "Data Validation", progress: 0, status: "idle" },
+  agent3: { name: "OFAC Screening", progress: 0, status: "idle" },
+  kycComplete: { name: "KYC Decision", progress: 0, status: "idle" }
+};
+
 const KYCPortal = () => {
   const [authenticated, setAuthenticated] = useState(false);
   const [currentTab, setCurrentTab] = useState('live_kyc');
@@ -477,12 +484,7 @@ const KYCPortal = () => {
 
   const initializePipeline = () => {
     setUploading(true);
-    setAgentProgress({
-      agent1: { name: "OCR Processing", status: "processing" },
-      agent2: { name: "Data Validation", status: "idle" },
-      agent3: { name: "OFAC Screening", status: "idle" },
-      kycComplete: { name: "KYC Decision", status: "idle" }
-    });
+    setAgentProgressMap({});
   };
 
   const handleUpload = async () => {
@@ -820,7 +822,7 @@ const KYCPortal = () => {
                       docType={extractedDocTypeMap[doc.key]} 
                       documentId={pollingDocIds[doc.key]} 
                       onRevalidate={() => setPollingDocIds({[doc.key]: pollingDocIds[doc.key]})} 
-                      agentProgress={docProgress || null} 
+                      agentProgress={docProgress || initialAgentProgress} 
                     />
                   )}
 
