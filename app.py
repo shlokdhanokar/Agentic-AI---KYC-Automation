@@ -47,10 +47,10 @@ container_name = os.environ.get("AZURE_BLOB_CONTAINER_NAME", "kyc-image")
 form_recognizer_endpoint = os.environ.get("AZURE_FORM_RECOGNIZER_ENDPOINT")
 form_recognizer_key = os.environ.get("AZURE_FORM_RECOGNIZER_KEY")
 
-# Google Gemini Configuration
-gemini_api_key = os.environ.get("GEMINI_API_KEY")
-if gemini_api_key:
-    pass
+# Groq Configuration
+groq_api_key = os.environ.get('GROQ_API_KEY')
+if not groq_api_key:
+    raise ValueError("GROQ_API_KEY is not set in the environment variables.")
 
 # Database file path
 DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
