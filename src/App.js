@@ -1,13 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard
+  Upload, CheckCircle, XCircle, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan, Settings, Bot, Sparkles, Loader2
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-// === TERMINAL CONSOLE (stays dark — it's a terminal!) ===
-const AgentConsole = ({ logs }) => {
+// === MULTI-AGENT COUNCIL FEED ===
+const agentConfig = {
+  'Orchestrator': { icon: Brain, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-200', title: 'Orchestrator Agent' },
+  'Vision AI': { icon: Scan, color: 'text-fuchsia-600', bg: 'bg-fuchsia-50', border: 'border-fuchsia-200', title: 'Vision OCR Agent' },
+  'Database AI': { icon: Database, color: 'text-cyan-600', bg: 'bg-cyan-50', border: 'border-cyan-200', title: 'Database Agent' },
+  'Compliance AI': { icon: ShieldAlert, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200', title: 'Compliance Agent' },
+  'System': { icon: Settings, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', title: 'System Engine' },
+  'Unknown': { icon: Bot, color: 'text-gray-600', bg: 'bg-gray-50', border: 'border-gray-200', title: 'AI Agent' }
+};
+
+const parseAgentLog = (logText) => {
+  const match = logText.match(/^\[(.*?)\] (.*)$/);
+  if (match) {
+    let agentType = match[1];
+    // Map backend prefixes to our config keys
+    if (agentType === 'Form Recognizer') agentType = 'Vision AI';
+    if (agentType === 'Database') agentType = 'Database AI';
+    if (agentType === 'Verification Agent') agentType = 'Compliance AI';
+    if (agentType === 'OFAC Screening') agentType = 'Compliance AI';
+    if (agentType === 'AI Agent') agentType = 'Vision AI';
+    
+    return {
+      agent: agentConfig[agentType] || agentConfig['Unknown'],
+      message: match[2]
+    };
+  }
+  return {
+    agent: agentConfig['System'],
+    message: logText
+  };
+};
+
+const AgentCouncilFeed = ({ logs }) => {
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -16,62 +47,78 @@ const AgentConsole = ({ logs }) => {
     }
   }, [logs]);
 
-  const getLogColor = (log) => {
-    const text = log.text || '';
-    if (log.error) return 'text-red-400';
-    if (text.includes('✓') || text.includes('APPROVED')) return 'text-emerald-400';
-    if (text.includes('✗') || text.includes('REJECTED') || text.includes('INVALID')) return 'text-red-400';
-    if (text.includes('[Groq AI]') || text.includes('[AI Agent]')) return 'text-fuchsia-400';
-    if (text.includes('[Azure')) return 'text-sky-400';
-    if (text.includes('[Form Recognizer]')) return 'text-amber-400';
-    if (text.includes('[Database]')) return 'text-cyan-400';
-    if (text.includes('[Verification')) return 'text-yellow-400';
-    if (text.includes('[OFAC')) return 'text-orange-400';
-    if (text.includes('[KYC')) return 'text-purple-400';
-    return 'text-gray-300';
-  };
-
   return (
-    <div className="flex flex-col h-full bg-[#0d1117] rounded-2xl overflow-hidden font-mono text-xs shadow-xl border border-gray-200 relative">
-      {/* Terminal Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-gray-700/50">
+    <div className="flex flex-col h-full bg-white/70 backdrop-blur-md rounded-2xl overflow-hidden shadow-sm border border-gray-200/80 relative">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 bg-white/80 border-b border-gray-100">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center border border-indigo-200/50">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+          </div>
+          <span className="text-[#001f3f] text-xs font-bold tracking-wider uppercase">Multi-Agent Council</span>
+        </div>
         <div className="flex items-center space-x-2">
-          <div className="flex space-x-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-          </div>
-          <span className="ml-2 text-gray-400 text-xs font-semibold flex items-center tracking-wider">
-            <Terminal className="w-3 h-3 mr-1.5" /> AGENT CONSOLE
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-        </div>
-        <div className="flex items-center space-x-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-green-500 text-[9px] font-bold tracking-widest">LIVE</span>
+          <span className="text-emerald-600 text-[10px] font-bold tracking-widest uppercase">Active</span>
         </div>
       </div>
 
-      {/* Terminal Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+      {/* Feed Body */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 no-scrollbar">
         {logs.length === 0 && (
-          <div className="text-gray-600 italic flex items-center">
-            <Cpu className="w-4 h-4 mr-2 animate-pulse" /> Awaiting pipeline initialization...
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-3">
+            <Bot className="w-8 h-8 opacity-50" />
+            <p className="text-xs">Awaiting pipeline initialization...</p>
           </div>
         )}
-        {logs.map((log, i) => (
-          <div key={i} className={`flex items-start space-x-3 ${getLogColor(log)} animate-fade-in`}>
-            <span className="text-gray-600 shrink-0 select-none">[{log.time || '--:--:--'}]</span>
-            <span className="leading-relaxed">{log.text}</span>
-          </div>
-        ))}
-        {logs.length > 0 && !logs[logs.length - 1]?.text?.includes('[KYC Decision]') && (
-          <div className="text-gray-500 animate-pulse mt-2">▋</div>
-        )}
-      </div>
+        
+        {logs.map((log, i) => {
+          const parsed = parseAgentLog(log.text);
+          const AgentIcon = parsed.agent.icon;
+          const isError = log.error || parsed.message.includes('FAILED') || parsed.message.includes('INVALID');
+          const isSuccess = parsed.message.includes('APPROVED') || parsed.message.includes('successfully');
+          
+          return (
+            <div key={i} className="flex space-x-3 animate-fade-in group">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm ${parsed.agent.bg} ${parsed.agent.border} ${parsed.agent.color} group-hover:scale-105 transition-transform`}>
+                <AgentIcon className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className={`text-[10px] font-bold ${parsed.agent.color} tracking-wide`}>{parsed.agent.title}</span>
+                  <span className="text-[9px] text-gray-400 font-mono">{log.time || '--:--:--'}</span>
+                </div>
+                <div className={`text-xs p-3 rounded-2xl rounded-tl-none border shadow-sm w-fit max-w-[95%] leading-relaxed ${
+                  isError ? 'bg-red-50 text-red-700 border-red-200' :
+                  isSuccess ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                  'bg-white text-gray-700 border-gray-100'
+                }`}>
+                  {parsed.message}
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
-      {/* Terminal Footer */}
-      <div className="px-4 py-1.5 bg-[#161b22] border-t border-gray-700/50 text-[9px] text-gray-600 tracking-wide">
-        Powered by Azure Blob Storage • Azure Form Recognizer • Groq Llama 3.3
+        {/* Typing indicator (when processing) */}
+        {logs.length > 0 && !logs[logs.length - 1]?.text?.includes('[KYC Decision]') && (
+          <div className="flex space-x-3 animate-fade-in">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border border-gray-200 bg-gray-50 shadow-sm">
+              <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+            </div>
+            <div className="flex-1">
+              <div className="text-[10px] font-bold text-gray-400 tracking-wide mb-0.5">Council processing...</div>
+              <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-tl-none px-4 py-3 w-fit shadow-sm flex items-center space-x-1">
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -752,9 +799,9 @@ const KYCPortal = () => {
             </form>
           </div>
 
-          {/* Terminal Console */}
+          {/* Multi-Agent Council Feed */}
           <div className="flex-1 min-h-0">
-            <AgentConsole logs={agentLogs} />
+            <AgentCouncilFeed logs={agentLogs} />
           </div>
         </div>
 
