@@ -534,7 +534,7 @@ const KYCPortal = () => {
             {documents.map(doc => (
               <div key={doc.key}
                 className={`rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
-                  doc.file
+                  (doc.file || previewUrls[doc.key])
                     ? doc.borderActive + ' shadow-lg hover:shadow-xl'
                     : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                 }`}
@@ -548,14 +548,14 @@ const KYCPortal = () => {
                       <p className="text-white/70 text-[10px]">{doc.description}</p>
                     </div>
                   </div>
-                  {doc.file && (
+                  {(doc.file || previewUrls[doc.key]) && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
                   )}
                 </div>
 
                 {/* Card Body */}
                 <div className="p-4 bg-white">
-                  {doc.file ? (
+                  {(doc.file || previewUrls[doc.key]) ? (
                     <div className="relative group">
                       {/* Preview Area */}
                       {previewUrls[doc.key] ? (
