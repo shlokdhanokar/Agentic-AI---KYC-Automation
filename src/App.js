@@ -1,43 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, AlertCircle, CheckCircle, XCircle, Eye, Clock,
-  Home, Activity, Bell, Terminal, Play
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-// === REUSABLE COMPONENTS ===
-
-const TabButton = ({ id, icon: Icon, label, active, onClick }) => (
-  <button
-    onClick={() => onClick(id)}
-    className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 w-full text-left font-medium text-sm tracking-wide
-    ${active
-      ? 'bg-gradient-to-r from-[#F15840] to-[#ff7b5e] text-white shadow-lg shadow-orange-500/30'
-      : 'text-[#a0b8cc] hover:bg-white/10 hover:text-white'}`}
-  >
-    <Icon className="w-4 h-4" />
-    <span>{label}</span>
-  </button>
-);
-
-const ActionCard = ({ icon: Icon, title, description, color, onClick }) => (
-  <div
-    onClick={onClick}
-    className={`p-5 rounded-xl shadow-md cursor-pointer bg-white border-l-4 ${color} transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl`}
-  >
-    <div className="flex items-center space-x-3 mb-2">
-      <Icon className="w-5 h-5 text-gray-500" />
-      <h4 className="text-lg font-semibold text-gray-800">{title}</h4>
-    </div>
-    <p className="text-sm text-gray-500">{description}</p>
-  </div>
-);
-
-// === AGENT CONSOLE SIDE PANEL ===
-
-const AgentConsole = ({ logs, visible, onClose }) => {
+// === HACKER TERMINAL CONSOLE ===
+const AgentConsole = ({ logs }) => {
   const scrollRef = useRef(null);
 
   useEffect(() => {
@@ -46,70 +16,86 @@ const AgentConsole = ({ logs, visible, onClose }) => {
     }
   }, [logs]);
 
-  if (!visible) return null;
-
   const getLogColor = (log) => {
     const text = log.text || '';
     if (log.error) return 'text-red-400';
     if (text.includes('✓') || text.includes('APPROVED')) return 'text-emerald-400';
     if (text.includes('✗') || text.includes('REJECTED') || text.includes('INVALID')) return 'text-red-400';
-    if (text.includes('[Gemini AI]') || text.includes('[AI Agent]')) return 'text-purple-400';
+    if (text.includes('[Groq AI]') || text.includes('[AI Agent]')) return 'text-fuchsia-400';
     if (text.includes('[Azure')) return 'text-sky-400';
     if (text.includes('[Form Recognizer]')) return 'text-amber-400';
     if (text.includes('[Database]')) return 'text-cyan-400';
     if (text.includes('[Verification')) return 'text-yellow-400';
-    if (text.includes('[KYC')) return 'text-pink-400';
+    if (text.includes('[KYC')) return 'text-purple-400';
     return 'text-gray-300';
   };
 
   return (
-    <div className="w-[420px] bg-[#0d1117] border-l border-gray-800 flex flex-col font-mono text-xs shadow-2xl">
-      {/* Console Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-[#161b22] border-b border-gray-800">
+    <div className="flex flex-col h-full glass-dark rounded-2xl overflow-hidden font-mono text-xs shadow-2xl border border-slate-700/50 relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 to-purple-900/10 pointer-events-none"></div>
+      
+      {/* Terminal Header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-700/50 backdrop-blur-md relative z-10">
         <div className="flex items-center space-x-2">
           <div className="flex space-x-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500 cursor-pointer hover:brightness-125" onClick={onClose}></div>
+            <div className="w-3 h-3 rounded-full bg-red-500"></div>
             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
           </div>
-          <span className="ml-2 text-gray-400 text-xs font-medium flex items-center">
-            <Terminal className="w-3 h-3 mr-1" /> Agent Console
+          <span className="ml-2 text-slate-300 text-xs font-semibold flex items-center tracking-wider">
+            <Terminal className="w-3 h-3 mr-1.5" /> SYSTEM_TERMINAL
           </span>
         </div>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1.5">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-green-500 text-[10px]">LIVE</span>
+          <span className="text-green-500 text-[9px] font-bold tracking-widest">LIVE</span>
         </div>
       </div>
 
-      {/* Console Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1.5" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+      {/* Terminal Body */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar relative z-10">
         {logs.length === 0 && (
-          <div className="text-gray-600 italic">Waiting for processing to start...</div>
+          <div className="text-slate-500 italic flex items-center">
+            <Cpu className="w-4 h-4 mr-2 animate-pulse" /> Awaiting pipeline initialization...
+          </div>
         )}
         {logs.map((log, i) => (
-          <div key={i} className={`flex items-start space-x-2 ${getLogColor(log)} animate-fade-in`}>
-            <span className="text-gray-600 shrink-0">{log.time || '--:--:--'}</span>
-            <span className="leading-relaxed">{log.text}</span>
+          <div key={i} className={`flex items-start space-x-3 ${getLogColor(log)} animate-fade-in`}>
+            <span className="text-slate-600 shrink-0 select-none">[{log.time || '--:--:--'}]</span>
+            <span className="leading-relaxed drop-shadow-md">{log.text}</span>
           </div>
         ))}
         {logs.length > 0 && !logs[logs.length - 1]?.text?.includes('[KYC Decision]') && (
-          <div className="text-gray-500 animate-pulse">▋</div>
+          <div className="text-slate-500 animate-pulse mt-2">▋</div>
         )}
-      </div>
-
-      {/* Console Footer */}
-      <div className="px-4 py-2 bg-[#161b22] border-t border-gray-800 text-[10px] text-gray-600">
-        Powered by Azure Blob Storage • Azure Form Recognizer • Google Gemini AI
       </div>
     </div>
   );
 };
 
-// === MAIN APPLICATION ===
+// === INTERACTIVE PIPELINE NODE ===
+const PipelineNode = ({ icon: Icon, title, status, active }) => {
+  const getStatusClasses = () => {
+    if (status === 'completed') return 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
+    if (status === 'invalid' || status === 'error') return 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
+    if (active) return 'bg-[#F15840]/20 border-[#F15840] text-[#F15840] shadow-[0_0_20px_rgba(241,88,64,0.4)] animate-pulse-ring relative';
+    return 'bg-slate-800/50 border-slate-700 text-slate-500';
+  };
 
+  return (
+    <div className="flex flex-col items-center justify-center relative z-10 w-24">
+      <div className={`w-14 h-14 rounded-xl flex items-center justify-center border-2 transition-all duration-500 backdrop-blur-md ${getStatusClasses()}`}>
+        <Icon className={`w-6 h-6 ${active ? 'animate-bounce' : ''}`} />
+      </div>
+      <p className={`text-[10px] font-bold text-center mt-3 uppercase tracking-wider ${active ? 'text-white glow-text' : 'text-slate-400'}`}>
+        {title}
+      </p>
+    </div>
+  );
+};
+
+// === MAIN APPLICATION ===
 const KYCPortal = () => {
-  const [activeTab, setActiveTab] = useState("home");
   const [authenticated, setAuthenticated] = useState(false);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -119,24 +105,18 @@ const KYCPortal = () => {
   const [licenseFile, setLicenseFile] = useState(null);
   const [idCardFile, setIdCardFile] = useState(null);
   const [previewUrls, setPreviewUrls] = useState({ passport: null, license: null, idCard: null });
-  // eslint-disable-next-line no-unused-vars
-  const [validationResults, setValidationResults] = useState(null);
   const [uploading, setUploading] = useState(false);
 
-  // Agent Console state
-  const [showConsole, setShowConsole] = useState(false);
   const [agentLogs, setAgentLogs] = useState([]);
   const [pollingDocIds, setPollingDocIds] = useState({});
   const pollingRef = useRef(null);
 
   const [agentProgress, setAgentProgress] = useState(null);
-  // eslint-disable-next-line no-unused-vars
-  const [alerts, setAlerts] = useState([]);
 
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
 
-  // Poll the backend for processing logs (supports multiple document IDs)
+  // Poll the backend for processing logs
   useEffect(() => {
     const entries = Object.entries(pollingDocIds);
     if (entries.length === 0) return;
@@ -176,13 +156,11 @@ const KYCPortal = () => {
 
         if (latestResult && latestResult.status === 'completed') {
           setAgentProgress({
-            agent1: { name: "Document Processing", progress: 100, status: "completed" },
-            agent2: { name: "Validation", progress: 100, status: (latestResult.verification_status === 'VALID' || (latestResult.verification_status === 'INVALID' && latestResult.message?.includes('OFAC'))) ? "completed" : "invalid" },
+            agent1: { name: "OCR Processing", progress: 100, status: "completed" },
+            agent2: { name: "Data Validation", progress: 100, status: (latestResult.verification_status === 'VALID' || (latestResult.verification_status === 'INVALID' && latestResult.message?.includes('OFAC'))) ? "completed" : "invalid" },
             agent3: { name: "OFAC Screening", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : (latestResult.message?.includes('OFAC') ? "invalid" : "idle"), message: latestResult.message },
-            kycComplete: { name: "KYC Complete", progress: latestResult.kyc_completed ? 100 : 50, status: latestResult.kyc_completed ? "completed" : "incomplete" }
+            kycComplete: { name: "KYC Decision", progress: latestResult.kyc_completed ? 100 : 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid" }
           });
-          setValidationResults(latestResult);
-          setActiveTab("status");
         }
       }
     };
@@ -195,28 +173,13 @@ const KYCPortal = () => {
     };
   }, [pollingDocIds]);
 
-  const normalizeStatus = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed': return 'Completed';
-      case 'processing': return 'Processing';
-      case 'idle': return 'Idle';
-      default: return 'Idle';
-    }
-  };
-
   const handleLogin = () => {
     setAuthError('');
     if (name.trim() === VALID_USERNAME && password.trim() === VALID_PASSWORD) {
       setAuthenticated(true);
     } else {
-      setAuthError('Invalid username or password. Please try again.');
+      setAuthError('Invalid credentials. Access Denied.');
     }
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const handleFileSelect = (key, setter, file) => {
@@ -235,44 +198,43 @@ const KYCPortal = () => {
     });
   };
 
+  const initializePipeline = () => {
+    setUploading(true);
+    setAgentProgress({
+      agent1: { name: "OCR Processing", status: "processing" },
+      agent2: { name: "Data Validation", status: "idle" },
+      agent3: { name: "OFAC Screening", status: "idle" },
+      kycComplete: { name: "KYC Decision", status: "idle" }
+    });
+  };
+
   const handleUpload = async () => {
     const filesToUpload = [];
     if (passportFile) filesToUpload.push({ key: 'passport', label: 'Passport', file: passportFile });
     if (licenseFile) filesToUpload.push({ key: 'license', label: 'Driving License', file: licenseFile });
     if (idCardFile) filesToUpload.push({ key: 'idCard', label: 'ID Card', file: idCardFile });
 
-    if (filesToUpload.length === 0) {
-      alert('Please upload at least one document');
-      return;
-    }
+    if (filesToUpload.length === 0) return alert('Please upload at least one document');
 
-    setUploading(true);
-    setShowConsole(true);
-    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString() }]);
-    setAgentProgress({
-      agent1: { name: "Document Processing", progress: 0, status: "processing" },
-      agent2: { name: "Validation", progress: 0, status: "idle" },
-      agent3: { name: "OFAC Screening", progress: 0, status: "idle" },
-      kycComplete: { name: "KYC Complete", progress: 0, status: "idle" }
-    });
+    initializePipeline();
+    setAgentLogs([{ text: `[System] Command Center initialized — ${filesToUpload.length} document(s) in queue`, time: new Date().toLocaleTimeString() }]);
 
     const newDocIds = {};
 
     for (const { key, label, file } of filesToUpload) {
       const formData = new FormData();
       formData.append('file', file);
-
       try {
         const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
         const data = await response.json();
         if (data.success && data.documentId) {
           newDocIds[key] = data.documentId;
-          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString() }]);
+          setAgentLogs(prev => [...prev, { text: `[System] ✓ ${label} ingested — Agent routing initiated`, time: new Date().toLocaleTimeString() }]);
         } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+          setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to ingest ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
         }
       } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error uploading ${label}: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+        setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
       }
     }
 
@@ -284,27 +246,12 @@ const KYCPortal = () => {
   };
 
   const handleDemoUpload = async () => {
-    // Populate the UI previews
-    setPreviewUrls({
-      passport: '/demo-passport.png',
-      license: '/demo-dl.png',
-      idCard: '/demo-id.png'
-    });
-    
-    setUploading(true);
-    setShowConsole(true);
-    setAgentLogs([{ text: '[System] Demo mode — Loading sample documents...', time: new Date().toLocaleTimeString() }]);
-    setActiveTab("upload");
-    
-    setAgentProgress({
-      agent1: { name: "Document Processing", progress: 0, status: "processing" },
-      agent2: { name: "Validation", progress: 0, status: "idle" },
-      agent3: { name: "OFAC Screening", progress: 0, status: "idle" },
-      kycComplete: { name: "KYC Complete", progress: 0, status: "idle" }
-    });
+    setPreviewUrls({ passport: '/demo-passport.png', license: '/demo-dl.png', idCard: '/demo-id.png' });
+    initializePipeline();
+    setAgentLogs([{ text: '[System] Demo mode activated — Injecting synthetic payload...', time: new Date().toLocaleTimeString() }]);
 
     const newDocIds = {};
-    const docTypes = ['license']; // We can add 'passport' and 'idCard' here to process all three
+    const docTypes = ['license']; 
     
     for (const docType of docTypes) {
       try {
@@ -332,500 +279,242 @@ const KYCPortal = () => {
     }
   };
 
-  // === CUSTOMER VERIFICATION ===
-  const [customerIdInput, setCustomerIdInput] = useState('');
-  const [customerDetails, setCustomerDetails] = useState(null);
-  const [verificationError, setVerificationError] = useState('');
-  const [isCustomerVerified, setIsCustomerVerified] = useState(false);
-
-  const mockCustomerData = {
-    "CUST001": { name: "John Doe", email: "john.doe@email.com", phone: "+1-555-0123", status: "Active" },
-    "CUST002": { name: "Jane Smith", email: "jane.smith@email.com", phone: "+1-555-0456", status: "Pending" },
-    "CUST003": { name: "Mike Johnson", email: "mike.johnson@email.com", phone: "+1-555-0789", status: "Active" }
-  };
-
-  const handleCustomerVerification = () => {
-    const customerId = customerIdInput.trim().toUpperCase();
-    if (mockCustomerData[customerId]) {
-      setCustomerDetails(mockCustomerData[customerId]);
-      setIsCustomerVerified(true);
-      setVerificationError('');
-    } else {
-      setVerificationError("Customer not found. Try CUST001, CUST002, or CUST003");
-      setCustomerDetails(null);
-      setIsCustomerVerified(false);
-    }
-  };
+  // Determine active agent based on logs
+  let activeAgent = 0; // 0=none, 1=OCR, 2=Validation, 3=OFAC, 4=Done
+  if (uploading) {
+    const lastLog = agentLogs[agentLogs.length - 1]?.text || "";
+    if (lastLog.includes("[Form Recognizer]") || lastLog.includes("[Groq AI]") || lastLog.includes("[Azure Blob]")) activeAgent = 1;
+    else if (lastLog.includes("[Verification Agent]") || lastLog.includes("[Database]")) activeAgent = 2;
+    else if (lastLog.includes("[OFAC Screening]")) activeAgent = 3;
+    else if (lastLog.includes("[KYC Decision]")) activeAgent = 4;
+    else activeAgent = 1;
+  }
 
   // === RENDER: LOGIN ===
-  const renderLogin = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex flex-col">
-      <header className="p-5">
-        <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-16 w-auto" />
-      </header>
-
-      <div className="flex-grow flex items-center justify-center px-4">
-        <div className="bg-white/80 backdrop-blur-xl shadow-2xl rounded-2xl p-10 w-full max-w-xl border border-white/50 transform transition-all duration-500 hover:shadow-3xl">
-          <h2 className="text-3xl font-bold text-center text-[#001f3f] mb-2">
-            Welcome to KYC Portal
-          </h2>
-          <p className="text-sm text-center text-gray-500 mb-8">
-            Please enter your credentials to continue
-          </p>
-
-          <input
-            type="text"
-            placeholder="Agent Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 mb-4 border border-gray-200 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all text-sm"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            className="w-full px-4 py-3 mb-6 border border-gray-200 rounded-xl bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all text-sm"
-          />
-          <button
-            onClick={handleLogin}
-            className="w-full bg-gradient-to-r from-[#F15840] to-[#ff7b5e] hover:from-[#d44a35] hover:to-[#e5684e] text-white font-semibold px-4 py-3 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40"
-          >
-            Login
-          </button>
-
-          {authError && (
-            <p className="mt-4 text-red-500 text-sm text-center animate-pulse">{authError}</p>
-          )}
-
-          <div className="mt-8 text-center border-t pt-6 border-gray-200">
-            <p className="text-xs text-gray-400 mb-2">Are you a recruiter evaluating this project?</p>
-            <button
-              onClick={() => setAuthenticated(true)}
-              className="inline-flex items-center space-x-2 text-sm font-bold text-[#F15840] hover:text-[#d44a35] transition duration-300 group"
-            >
-              <Play className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              <span className="underline underline-offset-4">CLICK HERE FOR RECRUITER VIEW</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <footer className="text-center text-xs text-gray-400 py-4">
-        © 2025 Coforge. All rights reserved.
-      </footer>
-    </div>
-  );
-
-  // === RENDER: HOME / DASHBOARD ===
-  const renderHome = () => (
-    <div className="space-y-6">
-      <div className="bg-gradient-to-r from-[#001f3f] to-[#003366] rounded-2xl p-8 text-white shadow-xl">
-        <h2 className="text-2xl font-bold mb-2">Welcome to KYC Portal</h2>
-        <p className="text-blue-200 text-sm">Get Started with your KYC verification process.</p>
-      </div>
-
-      {/* Customer Verification */}
-      <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100">
-        <h2 className="text-xl font-semibold mb-1 text-gray-800">Customer Verification</h2>
-        <p className="text-sm text-gray-500 mb-4">Enter Customer ID to verify and retrieve customer information.</p>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-          <p className="text-sm text-amber-800">
-            <strong>Demo Customer IDs:</strong> CUST001, CUST002, CUST003
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <input
-            type="text"
-            value={customerIdInput}
-            onChange={(e) => setCustomerIdInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCustomerVerification()}
-            placeholder="Enter Customer ID (e.g., CUST001)"
-            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-orange-400"
-          />
-          <button
-            onClick={handleCustomerVerification}
-            className="bg-gradient-to-r from-[#F15840] to-[#ff7b5e] text-white px-5 py-2.5 rounded-xl hover:shadow-lg transition-all text-sm font-medium"
-          >
-            Verify Customer
-          </button>
-        </div>
-
-        {verificationError && <p className="text-red-500 mt-3 text-sm">{verificationError}</p>}
-
-        {customerDetails && (
-          <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <p className="font-semibold text-emerald-800 flex items-center"><CheckCircle className="w-4 h-4 mr-2" /> Customer Verified Successfully!</p>
-            <div className="grid grid-cols-2 gap-2 mt-2 text-sm text-gray-700">
-              <p><strong>Name:</strong> {customerDetails.name}</p>
-              <p><strong>Email:</strong> {customerDetails.email}</p>
-              <p><strong>Phone:</strong> {customerDetails.phone}</p>
-              <p><strong>Status:</strong> <span className={customerDetails.status === 'Active' ? 'text-green-600 font-medium' : 'text-yellow-600 font-medium'}>{customerDetails.status}</span></p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isCustomerVerified ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <ActionCard icon={Upload} title="Upload Documents" description="Start your verification process" color="border-blue-500" onClick={() => setActiveTab("upload")} />
-          <ActionCard icon={Activity} title="Check Status" description="View KYC processing status" color="border-green-500" onClick={() => setActiveTab("status")} />
-          <ActionCard icon={Bell} title="Alerts" description="Check compliance issues" color="border-yellow-500" onClick={() => setActiveTab("alerts")} />
-        </div>
-      ) : (
-        <p className="text-gray-400 italic text-sm">Please verify a customer to proceed.</p>
-      )}
-    </div>
-  );
-
-  // === RENDER: UPLOAD ===
-  const renderUpload = () => {
-    const documents = [
-      { key: 'passport', label: 'Passport', description: 'National passport document', file: passportFile, setter: setPassportFile, gradient: 'from-blue-500 to-indigo-600', bgLight: 'bg-blue-50', borderActive: 'border-blue-400', iconEmoji: '\uD83D\uDEC2' },
-      { key: 'license', label: 'Driving License', description: 'Valid driving license', file: licenseFile, setter: setLicenseFile, gradient: 'from-emerald-500 to-teal-600', bgLight: 'bg-emerald-50', borderActive: 'border-emerald-400', iconEmoji: '\uD83D\uDE97' },
-      { key: 'idCard', label: 'ID Card', description: 'Government-issued ID card', file: idCardFile, setter: setIdCardFile, gradient: 'from-purple-500 to-violet-600', bgLight: 'bg-purple-50', borderActive: 'border-purple-400', iconEmoji: '\uD83E\uDEAA' },
-    ];
-    const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
-
+  if (!authenticated) {
     return (
-      <div className="space-y-6">
-        {/* Demo Section for Recruiters */}
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center space-x-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-              <Play className="w-5 h-5 text-purple-600" />
+      <div className="min-h-screen bg-[#050B14] flex flex-col relative overflow-hidden font-sans">
+        {/* Animated Background Mesh */}
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#F15840] rounded-full blur-[150px] opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#004a8b] rounded-full blur-[200px] opacity-30"></div>
+        
+        <header className="p-6 relative z-10 flex justify-center w-full">
+          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-16 w-auto brightness-0 invert opacity-90" />
+        </header>
+
+        <div className="flex-grow flex items-center justify-center px-4 relative z-10">
+          <div className="glass-dark p-10 w-full max-w-md rounded-3xl border border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-[#F15840] to-purple-500"></div>
+            
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center shadow-lg">
+                <Lock className="w-8 h-8 text-[#F15840]" />
+              </div>
             </div>
-            <div>
-              <h3 className="font-bold text-gray-800">Try Demo</h3>
-              <p className="text-xs text-gray-500">No documents? Use our pre-loaded sample to see the full AI pipeline in action.</p>
+            
+            <h2 className="text-2xl font-bold text-center text-white mb-2 tracking-wide">
+              KYC Command Center
+            </h2>
+            <p className="text-xs text-center text-slate-400 mb-8 uppercase tracking-widest">
+              Authorized Personnel Only
+            </p>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="AGENT_ID"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#F15840] transition-colors placeholder-slate-600 font-mono text-sm"
+                />
+              </div>
+              <div className="relative">
+                <input
+                  type="password"
+                  placeholder="PASSPHRASE"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                  className="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#F15840] transition-colors placeholder-slate-600 font-mono text-sm"
+                />
+              </div>
+              <button
+                onClick={handleLogin}
+                className="w-full bg-[#F15840] hover:bg-[#ff6a53] text-white font-bold px-4 py-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(241,88,64,0.3)] hover:shadow-[0_0_30px_rgba(241,88,64,0.5)] uppercase tracking-wider text-sm mt-4"
+              >
+                Authenticate
+              </button>
+            </div>
+
+            {authError && (
+              <p className="mt-5 text-[#ff4a4a] text-xs font-mono text-center flex items-center justify-center bg-red-900/20 py-2 rounded-lg border border-red-900/50">
+                <ShieldAlert className="w-3 h-3 mr-2" /> {authError}
+              </p>
+            )}
+
+            <div className="mt-8 pt-6 border-t border-slate-800 text-center">
+               <button onClick={() => setAuthenticated(true)} className="text-[10px] text-slate-500 hover:text-white transition-colors font-mono uppercase tracking-widest underline decoration-slate-700 underline-offset-4">
+                 [ Bypass for Demo Evaluation ]
+               </button>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // === RENDER: DASHBOARD (SPLIT PANE) ===
+  const documents = [
+    { key: 'passport', label: 'Passport', file: passportFile, setter: setPassportFile },
+    { key: 'license', label: 'Driving License', file: licenseFile, setter: setLicenseFile },
+    { key: 'idCard', label: 'ID Card', file: idCardFile, setter: setIdCardFile },
+  ];
+  const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
+
+  return (
+    <div className="h-screen w-screen bg-[#050B14] font-sans overflow-hidden flex flex-col text-slate-300">
+      {/* Top Navbar */}
+      <nav className="h-16 glass-dark border-b border-slate-800 flex items-center justify-between px-6 shrink-0 relative z-50">
+        <div className="flex items-center space-x-4">
+          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-10 w-auto brightness-0 invert opacity-90" />
+          <div className="h-6 w-px bg-slate-700"></div>
+          <span className="text-white font-semibold tracking-wider text-sm">AGENTIC KYC PIPELINE</span>
+        </div>
+        <div className="flex items-center space-x-4">
           <button
             onClick={handleDemoUpload}
             disabled={uploading}
-            className={`w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2
-              ${uploading
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/30 hover:-translate-y-0.5'}`}
+            className="flex items-center space-x-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/50 text-purple-300 rounded-lg text-xs font-bold transition-all disabled:opacity-50 uppercase tracking-widest"
           >
-            <Terminal className="w-4 h-4" />
-            <span>{uploading ? 'Processing Demo...' : 'Run Demo with Sample Document'}</span>
+            <Play className="w-3 h-3" /> <span>Run Demo Payload</span>
           </button>
         </div>
+      </nav>
 
-        {/* Upload Section */}
-        <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h3 className="text-lg font-bold text-gray-800">Upload Documents</h3>
-              <p className="text-sm text-gray-500">Upload your documents for KYC verification. Preview is shown after selection.</p>
+      {/* Main Grid Workspace */}
+      <div className="flex-1 p-6 grid grid-cols-12 gap-6 h-[calc(100vh-4rem)] relative z-10">
+        
+        {/* LEFT PANE: Pipeline & Logs */}
+        <div className="col-span-12 lg:col-span-7 flex flex-col space-y-6 h-full">
+          
+          {/* Top: Architecture / Agent Graph */}
+          <div className="glass-dark rounded-2xl p-6 relative flex flex-col justify-center h-48 border border-slate-800">
+            <h3 className="absolute top-4 left-5 text-[10px] text-slate-500 font-bold tracking-widest uppercase flex items-center">
+              <Activity className="w-3 h-3 mr-2" /> Pipeline Telemetry
+            </h3>
+            
+            <div className="flex items-center justify-between mt-4 px-4 w-full max-w-2xl mx-auto relative">
+              {/* Connecting Lines */}
+              <div className="absolute top-7 left-12 right-12 h-0.5 bg-slate-800 z-0"></div>
+              
+              {/* Animated Flow Line */}
+              {uploading && (
+                <svg className="absolute top-7 left-12 right-12 h-1 z-0 overflow-visible" style={{ width: 'calc(100% - 96px)' }}>
+                  <line x1="0" y1="0" x2="100%" y2="0" stroke="#F15840" strokeWidth="2" strokeDasharray="10 10" className="animate-dash glow-text" />
+                </svg>
+              )}
+
+              <PipelineNode icon={FileText} title="Extraction" status={agentProgress?.agent1?.status} active={activeAgent === 1} />
+              <PipelineNode icon={Database} title="Validation" status={agentProgress?.agent2?.status} active={activeAgent === 2} />
+              <PipelineNode icon={ShieldAlert} title="OFAC" status={agentProgress?.agent3?.status} active={activeAgent === 3} />
+              <PipelineNode icon={CheckCircle} title="Decision" status={agentProgress?.kycComplete?.status} active={activeAgent === 4 || agentProgress?.kycComplete?.status} />
             </div>
-            {selectedCount > 0 && (
-              <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-blue-100 text-blue-700">
-                {selectedCount}/3 selected
-              </span>
-            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {documents.map(doc => (
-              <div key={doc.key}
-                className={`rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
-                  (doc.file || previewUrls[doc.key])
-                    ? doc.borderActive + ' shadow-lg hover:shadow-xl'
-                    : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                }`}
-              >
-                {/* Card Header */}
-                <div className={`bg-gradient-to-r ${doc.gradient} px-4 py-3 flex items-center justify-between`}>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">{doc.iconEmoji}</span>
-                    <div>
-                      <h4 className="text-white font-semibold text-sm">{doc.label}</h4>
-                      <p className="text-white/70 text-[10px]">{doc.description}</p>
-                    </div>
-                  </div>
-                  {(doc.file || previewUrls[doc.key]) && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
-                  )}
-                </div>
-
-                {/* Card Body */}
-                <div className="p-4 bg-white">
-                  {(doc.file || previewUrls[doc.key]) ? (
-                    <div className="relative group">
-                      {/* Preview Area */}
-                      {previewUrls[doc.key] ? (
-                        <div className="relative overflow-hidden rounded-xl border border-gray-100">
-                          <img
-                            src={previewUrls[doc.key]}
-                            alt={`${doc.label} preview`}
-                            className="w-full h-44 object-contain bg-gray-50"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-300 rounded-xl"></div>
-                        </div>
-                      ) : (
-                        <div className={`w-full h-44 ${doc.bgLight} rounded-xl flex flex-col items-center justify-center border border-dashed ${doc.borderActive}`}>
-                          <span className="text-4xl mb-2">\uD83D\uDCC4</span>
-                          <p className="text-xs font-medium text-gray-600">PDF Document</p>
-                        </div>
-                      )}
-
-                      {/* File Info Bar */}
-                      <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100">
-                        <div className="flex-1 min-w-0 mr-2">
-                          <p className="text-xs font-semibold text-gray-700 truncate">{doc.file ? doc.file.name : `Demo ${doc.label}`}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{doc.file ? formatFileSize(doc.file.size) : 'Sample Demo File'}</p>
-                        </div>
-                        <button
-                          onClick={() => handleFileRemove(doc.key, doc.setter)}
-                          className="shrink-0 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-all duration-200"
-                          title="Remove file"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <label className="block cursor-pointer">
-                      <div className={`w-full h-44 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center hover:border-gray-400 hover:${doc.bgLight} transition-all duration-200 group`}>
-                        <div className="w-12 h-12 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center mb-3 transition-colors">
-                          <Upload className="w-5 h-5 text-gray-400 group-hover:text-gray-500 transition-colors" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-400 group-hover:text-gray-600 transition-colors">Click to upload</p>
-                        <p className="text-[10px] text-gray-300 mt-1">PDF, PNG, JPG \u2022 Max 10MB</p>
-                      </div>
-                      <input
-                        type="file"
-                        accept=".pdf,.png,.jpg,.jpeg"
-                        onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0] || null)}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-            ))}
+          {/* Bottom: Terminal */}
+          <div className="flex-1 min-h-0">
+            <AgentConsole logs={agentLogs} />
           </div>
-
-          {/* Upload Button */}
-          <button
-            onClick={handleUpload}
-            disabled={uploading || selectedCount === 0}
-            className={`mt-6 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2
-              ${uploading || selectedCount === 0
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30 hover:-translate-y-0.5'}`}
-          >
-            <Upload className="w-4 h-4" />
-            <span>{uploading ? 'Processing...' : `Upload & Verify ${selectedCount > 0 ? `(${selectedCount} Document${selectedCount > 1 ? 's' : ''})` : 'All Documents'}`}</span>
-          </button>
         </div>
-      </div>
-    );
-  };
 
-  // === RENDER: STATUS ===
-  const renderStatus = () => {
-    if (!agentProgress) return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mb-4">
-          <Upload className="w-8 h-8 text-orange-400" />
-        </div>
-        <h2 className="text-xl font-semibold text-gray-700">No Documents Uploaded</h2>
-        <p className="mt-2 text-sm text-gray-400">Start your KYC process by uploading documents.</p>
-        <button
-          onClick={() => setActiveTab("upload")}
-          className="mt-4 px-6 py-2.5 bg-gradient-to-r from-[#F15840] to-[#ff7b5e] text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium"
-        >
-          Upload Now
-        </button>
-      </div>
-    );
-
-    const allValid = Object.values(agentProgress).every(
-      (step) => step.status === 'completed' || step.status === 'valid'
-    );
-
-    const extendedProgress = {
-      ...agentProgress,
-      ...(allValid && {
-        kycComplete: { name: 'KYC Complete', progress: 100, status: 'completed' }
-      })
-    };
-
-    const getStatusIcon = (status) => {
-      if (status === 'completed') return <CheckCircle className="text-emerald-500 w-5 h-5" />;
-      if (status === 'invalid') return <XCircle className="text-red-500 w-5 h-5" />;
-      return <Clock className="text-yellow-500 w-5 h-5" />;
-    };
-
-    return (
-      <div className="space-y-3">
-        {Object.entries(extendedProgress).map(([key, val]) => (
-          <div
-            key={key}
-            className="flex justify-between items-center p-5 bg-white rounded-2xl shadow-sm border border-gray-100 transform transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-          >
-            <div className="flex items-center space-x-3">
-              {getStatusIcon(val.status)}
-              <div>
-                <div className="font-semibold text-gray-800">{val.name}</div>
-                <div className="text-sm text-gray-500">
-                  {normalizeStatus(val.status)}
-                  {val.message && (
-                    <div className="text-xs text-red-500 mt-1">{val.message}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <button className="flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors">
-              <Eye className="w-4 h-4 mr-1" /> View
-            </button>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // === RENDER: ALERTS ===
-  const renderAlerts = () => (
-    <div>
-      <div className="bg-white rounded-2xl shadow-md p-6 border border-gray-100">
-        {alerts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-4">
-              <Bell className="w-8 h-8 text-red-400" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-700">No Alerts Yet</h2>
-            <p className="mt-2 text-sm text-gray-400">You haven't received any alerts. Upload documents to get started.</p>
-            <button
-              onClick={() => setActiveTab('upload')}
-              className="mt-4 px-6 py-2.5 bg-gradient-to-r from-[#F15840] to-[#ff7b5e] text-white rounded-xl hover:shadow-lg transition-all text-sm font-medium"
-            >
-              Upload Now
-            </button>
-          </div>
-        ) : (
-          alerts.map((alert, idx) => (
-            <div
-              key={idx}
-              className={`p-4 rounded-xl mb-3 border-l-4 ${
-                alert.type === 'pep' ? 'bg-yellow-50 border-yellow-500' :
-                alert.type === 'sanctioned_country' ? 'bg-red-50 border-red-500' :
-                'bg-orange-50 border-orange-500'
-              }`}
-            >
-              <div className="flex items-center space-x-3">
-                <AlertCircle className={`${
-                  alert.type === 'pep' ? 'text-yellow-500' :
-                  alert.type === 'sanctioned_country' ? 'text-red-500' :
-                  'text-orange-500'
-                }`} size={20} />
-                <p className="font-medium text-gray-800 text-sm">{alert.message}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-
-  // === RENDER CONTENT SWITCH ===
-  const renderContent = () => {
-    switch (activeTab) {
-      case "upload": return renderUpload();
-      case "status": return renderStatus();
-      case "alerts": return renderAlerts();
-      default: return renderHome();
-    }
-  };
-
-  // === MAIN RETURN ===
-  return (
-    <div className="min-h-screen bg-[#f4f7fa] font-sans">
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fade-in {
-          from { opacity: 0; transform: translateX(-4px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
-        .animate-fade-in { animation: fade-in 0.3s ease-out; }
-      `}</style>
-
-      {!authenticated ? renderLogin() : (
-        <>
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-3 bg-white/80 backdrop-blur-lg shadow-sm border-b border-gray-200/50 sticky top-0 z-50">
-            <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-12 w-auto" />
-            <div className="flex items-center space-x-3">
-              {showConsole ? (
-                <button
-                  onClick={() => setShowConsole(false)}
-                  className="flex items-center space-x-2 text-xs font-medium text-gray-500 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-all"
-                >
-                  <Terminal className="w-3.5 h-3.5" /> <span>Hide Console</span>
-                </button>
-              ) : agentLogs.length > 0 && (
-                <button
-                  onClick={() => setShowConsole(true)}
-                  className="flex items-center space-x-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-all"
-                >
-                  <Terminal className="w-3.5 h-3.5" /> <span>Show Console</span>
-                </button>
+        {/* RIGHT PANE: Documents & Status */}
+        <div className="col-span-12 lg:col-span-5 flex flex-col space-y-6 h-full">
+          
+          {/* Upload / Preview Area */}
+          <div className="glass-dark rounded-2xl p-6 flex flex-col flex-1 min-h-0 border border-slate-800">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h3 className="text-[10px] text-slate-500 font-bold tracking-widest uppercase flex items-center">
+                <Upload className="w-3 h-3 mr-2" /> Data Ingestion
+              </h3>
+              {selectedCount > 0 && (
+                <span className="text-[9px] font-bold px-2 py-1 rounded bg-[#F15840]/20 text-[#F15840] border border-[#F15840]/50 uppercase">
+                  {selectedCount} Loaded
+                </span>
               )}
             </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
+              {documents.map(doc => {
+                const hasFile = doc.file || previewUrls[doc.key];
+                return (
+                  <div key={doc.key} className={`rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50 transition-all ${hasFile ? 'border-blue-500/30' : 'hover:border-slate-600'}`}>
+                    {hasFile ? (
+                      <div className="relative h-32 w-full group bg-slate-950 flex justify-center">
+                         <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
+                         
+                         {/* Laser Scanning Effect */}
+                         {uploading && activeAgent === 1 && (
+                           <>
+                             <div className="absolute inset-0 bg-blue-500/10 pointer-events-none"></div>
+                             <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840] animate-scan-laser pointer-events-none"></div>
+                           </>
+                         )}
+
+                         <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-500/80 rounded-md text-white transition-colors">
+                           <XCircle className="w-4 h-4" />
+                         </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center h-32 cursor-pointer group">
+                        <Upload className="w-6 h-6 text-slate-600 group-hover:text-[#F15840] transition-colors mb-2" />
+                        <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider group-hover:text-slate-300">{doc.label}</span>
+                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])} />
+                      </label>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={handleUpload}
+              disabled={uploading || selectedCount === 0}
+              className={`mt-4 w-full py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
+                ${uploading || selectedCount === 0
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
+                  : 'bg-[#003a6b] hover:bg-[#004a8b] text-white shadow-[0_0_20px_rgba(0,58,107,0.5)] border border-blue-400/30 glow-text'}`}
+            >
+              <Cpu className="w-4 h-4" />
+              <span>{uploading ? 'PIPELINE ACTIVE' : 'INITIALIZE PIPELINE'}</span>
+            </button>
           </div>
 
-          <div className="flex" style={{ minHeight: 'calc(100vh - 105px)' }}>
-            {/* Sidebar */}
-            <div className="w-60 bg-gradient-to-b from-[#001f3f] to-[#003a6b] p-5 text-white flex flex-col">
-              <nav className="space-y-2 flex-1">
-                <TabButton id="home" icon={Home} label="Dashboard" active={activeTab === "home"} onClick={setActiveTab} />
-                <TabButton id="upload" icon={Upload} label="Upload" active={activeTab === "upload"} onClick={setActiveTab} />
-                <TabButton id="status" icon={Activity} label="Status" active={activeTab === "status"} onClick={setActiveTab} />
-                <TabButton id="alerts" icon={Bell} label="Alerts" active={activeTab === "alerts"} onClick={setActiveTab} />
-              </nav>
-
-              {/* Sidebar demo quick action */}
-              <div className="mt-auto pt-4 border-t border-white/10">
-                <button
-                  onClick={handleDemoUpload}
-                  disabled={uploading}
-                  className="w-full flex items-center justify-center space-x-2 text-xs font-medium py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-all disabled:opacity-50"
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>Run Demo</span>
-                </button>
+          {/* Verification Status Card */}
+          {agentProgress?.kycComplete?.status && (
+            <div className={`rounded-2xl p-6 border flex items-center justify-between shrink-0 shadow-2xl transition-all duration-500
+              ${agentProgress.kycComplete.status === 'completed' 
+                ? 'bg-emerald-900/30 border-emerald-500/50' 
+                : agentProgress.kycComplete.status === 'invalid'
+                ? 'bg-red-900/30 border-red-500/50'
+                : 'bg-slate-800 border-slate-700'}`}>
+              <div>
+                <h4 className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
+                <div className="flex items-center space-x-2">
+                   {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-6 h-6 text-emerald-500" />}
+                   {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-6 h-6 text-red-500" />}
+                   <span className={`text-xl font-bold tracking-wide
+                     ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-400' 
+                     : agentProgress.kycComplete.status === 'invalid' ? 'text-red-400' : 'text-slate-300'}`}>
+                     {agentProgress.kycComplete.status === 'completed' ? 'APPROVED' 
+                     : agentProgress.kycComplete.status === 'invalid' ? 'REJECTED' : 'AWAITING...'}
+                   </span>
+                </div>
               </div>
             </div>
-
-            {/* Main Content */}
-            <div className="flex-1 p-6 overflow-y-auto animate-fadeIn">
-              {renderContent()}
-            </div>
-
-            {/* Agent Console Side Panel */}
-            <AgentConsole
-              logs={agentLogs}
-              visible={showConsole}
-              onClose={() => setShowConsole(false)}
-            />
-          </div>
-
-          {/* Footer */}
-          <footer className="bg-[#001f3f] text-white/60 text-center py-3 text-xs">
-            © 2025 Coforge. All rights reserved. | Powered by Azure + Gemini AI
-          </footer>
-        </>
-      )}
+          )}
+        </div>
+      </div>
     </div>
   );
 };
