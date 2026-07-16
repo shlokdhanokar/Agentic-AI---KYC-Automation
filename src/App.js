@@ -701,6 +701,7 @@ const KYCPortal = () => {
       </nav>
 
       {/* Main Grid Workspace */}
+      {currentTab === 'live_kyc' ? (
       <div className="flex-1 p-5 grid grid-cols-12 gap-5 h-[calc(100vh-4rem)] relative z-10 overflow-hidden">
 
         {/* LEFT PANE: Pipeline & Logs */}
@@ -872,8 +873,13 @@ const KYCPortal = () => {
               )}
             </div>
           )}
-</div>
+        </div>
       </div>
+      ) : (
+        <div className="flex-1 overflow-auto bg-[#fafafa]">
+          <UserManagementDashboard />
+        </div>
+      )}
     </div>
   );
 };
