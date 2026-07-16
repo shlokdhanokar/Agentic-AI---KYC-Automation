@@ -10,3 +10,5 @@ redis
 openpyxl
 Werkzeug
 gunicorn
+
+groq==0.5.0

@@ -9,8 +9,8 @@ from werkzeug.utils import secure_filename
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
-from google import genai
-from google.genai import types
+from groq import Groq
+
 from dotenv import load_dotenv
 import pandas as pd
 import re
@@ -236,11 +236,8 @@ OCR Text:
 {full_text}
 """
 
-    # Using Gemini
-    client = genai.Client(api_key=gemini_api_key)
-    
-    # Prepend the system instructions to the prompt
-    full_prompt = "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY.\n\n" + prompt
+    # Using Groq (Llama3 70B)
+    client = Groq(api_key=groq_api_key)
     
     import time
     
@@ -249,27 +246,36 @@ OCR Text:
     
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=full_prompt,
-                config=types.GenerateContentConfig(temperature=0.2)
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You extract structured document data from OCR text. Always format dates as DD/MM/YYYY. Only return valid JSON."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                model="llama3-70b-8192",
+                temperature=0.2,
+                response_format={"type": "json_object"}
             )
-            gpt_response = response.text
+            gpt_response = chat_completion.choices[0].message.content
             break # Success, break out of retry loop
         except Exception as e:
             error_str = str(e)
-            print(f"Gemini API Error (Attempt {attempt+1}/{max_retries}): {error_str}")
+            print(f"Groq API Error (Attempt {attempt+1}/{max_retries}): {error_str}")
             
             if '503' in error_str or '429' in error_str:
                 if attempt < max_retries - 1:
-                    sleep_time = base_delay * (2 ** attempt) # Exponential backoff: 2s, 4s, 8s
+                    sleep_time = base_delay * (2 ** attempt)
                     print(f"Rate limited or overloaded. Retrying in {sleep_time} seconds...")
                     time.sleep(sleep_time)
                 else:
-                    gpt_response = f'{{"Error": "Gemini API failed after retries: {error_str}" }}'
+                    gpt_response = f'{{"Error": "Groq API failed after retries: {error_str}" }}'
             else:
-                # If it's a different error (e.g., 400 Bad Request), don't retry
-                gpt_response = f'{{"Error": "Gemini API failed: {error_str}" }}'
+                gpt_response = f'{{"Error": "Groq API failed: {error_str}" }}'
                 break
     
     try:
@@ -722,7 +728,7 @@ def process_document_with_logs(file_path, document_id):
         doc_type = determine_document_type(ocr_text)
         add_log(document_id, f'[AI Agent] ✓ Document classified as: {doc_type}')
 
-        add_log(document_id, '[Gemini AI] Extracting structured fields from OCR text...')
+        add_log(document_id, '[Groq AI] Extracting structured fields from OCR text...')
         status = database.get_document_status(document_id)
         status['status'] = 'extracting_structured_data'
         database.save_document_status(document_id, status)
@@ -730,12 +736,12 @@ def process_document_with_logs(file_path, document_id):
         print(f"[{document_id}] Extracted Data from Gemini: {structured_data}")
         if structured_data:
             if "Error" in structured_data:
-                add_log(document_id, f'[Gemini AI] ✗ API Error: {structured_data["Error"]}', error=True)
+                add_log(document_id, f'[Groq AI] ✗ API Error: {structured_data["Error"]}', error=True)
             else:
                 fields = ', '.join([k for k, v in structured_data.items() if v and v != '-'][:4])
-                add_log(document_id, f'[Gemini AI] ✓ Fields extracted: {fields}...')
+                add_log(document_id, f'[Groq AI] ✓ Fields extracted: {fields}...')
         else:
-            add_log(document_id, '[Gemini AI] ✓ Structured data extraction complete')
+            add_log(document_id, '[Groq AI] ✓ Structured data extraction complete')
 
         add_log(document_id, '[Verification Agent] Cross-referencing extracted data with database records...')
         status = database.get_document_status(document_id)
