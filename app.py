@@ -50,6 +50,7 @@ form_recognizer_key = os.environ.get("AZURE_FORM_RECOGNIZER_KEY")
 # Google Gemini Configuration
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 if gemini_api_key:
+    pass
 
 # Database file path
 DATABASE_FILE = "DATABASE_DOCUMENTS.xlsx"
