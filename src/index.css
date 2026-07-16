@@ -1,18 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20;
-  }
-  .glass-dark {
-    @apply bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 shadow-2xl;
-  }
-  .glow-text {
-    text-shadow: 0 0 10px rgba(241, 88, 64, 0.5);
-  }
-}
+@import "tailwindcss";
 
 /* Animations */
 @keyframes scan-laser {
@@ -22,18 +8,10 @@
   100% { top: 100%; opacity: 0; }
 }
 
-.animate-scan-laser {
-  animation: scan-laser 2s ease-in-out infinite;
-}
-
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 0.5; }
-  50% { transform: scale(1.2); opacity: 0; }
-  100% { transform: scale(0.8); opacity: 0; }
-}
-
-.animate-pulse-ring {
-  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  0% { box-shadow: 0 0 0 0 rgba(241, 88, 64, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(241, 88, 64, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(241, 88, 64, 0); }
 }
 
 @keyframes dash {
@@ -42,11 +20,28 @@
   }
 }
 
-.animate-dash {
-  animation: dash 1s linear infinite;
+@keyframes fade-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
-/* Scrollbar hiding for terminal */
+.animate-scan-laser {
+  animation: scan-laser 2s ease-in-out infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-dash {
+  animation: dash 0.8s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Custom scrollbar hiding */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

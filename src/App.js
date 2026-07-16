@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu
+  Upload, CheckCircle, XCircle, Terminal, Play, Lock, FileText, Database, ShieldAlert, Cpu, Activity
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
-// === HACKER TERMINAL CONSOLE ===
+// === TERMINAL CONSOLE (stays dark — it's a terminal!) ===
 const AgentConsole = ({ logs }) => {
   const scrollRef = useRef(null);
 
@@ -26,24 +26,23 @@ const AgentConsole = ({ logs }) => {
     if (text.includes('[Form Recognizer]')) return 'text-amber-400';
     if (text.includes('[Database]')) return 'text-cyan-400';
     if (text.includes('[Verification')) return 'text-yellow-400';
+    if (text.includes('[OFAC')) return 'text-orange-400';
     if (text.includes('[KYC')) return 'text-purple-400';
     return 'text-gray-300';
   };
 
   return (
-    <div className="flex flex-col h-full glass-dark rounded-2xl overflow-hidden font-mono text-xs shadow-2xl border border-slate-700/50 relative">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 to-purple-900/10 pointer-events-none"></div>
-      
+    <div className="flex flex-col h-full bg-[#0d1117] rounded-2xl overflow-hidden font-mono text-xs shadow-xl border border-gray-200 relative">
       {/* Terminal Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900/80 border-b border-slate-700/50 backdrop-blur-md relative z-10">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-gray-700/50">
         <div className="flex items-center space-x-2">
           <div className="flex space-x-1.5">
             <div className="w-3 h-3 rounded-full bg-red-500"></div>
             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
           </div>
-          <span className="ml-2 text-slate-300 text-xs font-semibold flex items-center tracking-wider">
-            <Terminal className="w-3 h-3 mr-1.5" /> SYSTEM_TERMINAL
+          <span className="ml-2 text-gray-400 text-xs font-semibold flex items-center tracking-wider">
+            <Terminal className="w-3 h-3 mr-1.5" /> AGENT CONSOLE
           </span>
         </div>
         <div className="flex items-center space-x-1.5">
@@ -53,41 +52,46 @@ const AgentConsole = ({ logs }) => {
       </div>
 
       {/* Terminal Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar relative z-10">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
         {logs.length === 0 && (
-          <div className="text-slate-500 italic flex items-center">
+          <div className="text-gray-600 italic flex items-center">
             <Cpu className="w-4 h-4 mr-2 animate-pulse" /> Awaiting pipeline initialization...
           </div>
         )}
         {logs.map((log, i) => (
           <div key={i} className={`flex items-start space-x-3 ${getLogColor(log)} animate-fade-in`}>
-            <span className="text-slate-600 shrink-0 select-none">[{log.time || '--:--:--'}]</span>
-            <span className="leading-relaxed drop-shadow-md">{log.text}</span>
+            <span className="text-gray-600 shrink-0 select-none">[{log.time || '--:--:--'}]</span>
+            <span className="leading-relaxed">{log.text}</span>
           </div>
         ))}
         {logs.length > 0 && !logs[logs.length - 1]?.text?.includes('[KYC Decision]') && (
-          <div className="text-slate-500 animate-pulse mt-2">▋</div>
+          <div className="text-gray-500 animate-pulse mt-2">▋</div>
         )}
+      </div>
+
+      {/* Terminal Footer */}
+      <div className="px-4 py-1.5 bg-[#161b22] border-t border-gray-700/50 text-[9px] text-gray-600 tracking-wide">
+        Powered by Azure Blob Storage • Azure Form Recognizer • Groq Llama 3.3
       </div>
     </div>
   );
 };
 
-// === INTERACTIVE PIPELINE NODE ===
+// === INTERACTIVE PIPELINE NODE (Light Theme) ===
 const PipelineNode = ({ icon: Icon, title, status, active }) => {
   const getStatusClasses = () => {
-    if (status === 'completed') return 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
-    if (status === 'invalid' || status === 'error') return 'bg-red-500/20 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]';
-    if (active) return 'bg-[#F15840]/20 border-[#F15840] text-[#F15840] shadow-[0_0_20px_rgba(241,88,64,0.4)] animate-pulse-ring relative';
-    return 'bg-slate-800/50 border-slate-700 text-slate-500';
+    if (status === 'completed') return 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-lg shadow-emerald-500/20';
+    if (status === 'invalid' || status === 'error') return 'bg-red-50 border-red-500 text-red-600 shadow-lg shadow-red-500/20';
+    if (active) return 'bg-[#FFF0ED] border-[#F15840] text-[#F15840] shadow-lg shadow-[#F15840]/25 animate-pulse-ring';
+    return 'bg-gray-50 border-gray-200 text-gray-400';
   };
 
   return (
     <div className="flex flex-col items-center justify-center relative z-10 w-24">
-      <div className={`w-14 h-14 rounded-xl flex items-center justify-center border-2 transition-all duration-500 backdrop-blur-md ${getStatusClasses()}`}>
+      <div className={`w-14 h-14 rounded-xl flex items-center justify-center border-2 transition-all duration-500 ${getStatusClasses()}`}>
         <Icon className={`w-6 h-6 ${active ? 'animate-bounce' : ''}`} />
       </div>
-      <p className={`text-[10px] font-bold text-center mt-3 uppercase tracking-wider ${active ? 'text-white glow-text' : 'text-slate-400'}`}>
+      <p className={`text-[10px] font-bold text-center mt-3 uppercase tracking-wider ${active ? 'text-[#F15840]' : status === 'completed' ? 'text-emerald-600' : status === 'invalid' ? 'text-red-600' : 'text-gray-400'}`}>
         {title}
       </p>
     </div>
@@ -159,7 +163,7 @@ const KYCPortal = () => {
             agent1: { name: "OCR Processing", progress: 100, status: "completed" },
             agent2: { name: "Data Validation", progress: 100, status: (latestResult.verification_status === 'VALID' || (latestResult.verification_status === 'INVALID' && latestResult.message?.includes('OFAC'))) ? "completed" : "invalid" },
             agent3: { name: "OFAC Screening", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : (latestResult.message?.includes('OFAC') ? "invalid" : "idle"), message: latestResult.message },
-            kycComplete: { name: "KYC Decision", progress: latestResult.kyc_completed ? 100 : 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid" }
+            kycComplete: { name: "KYC Decision", progress: 100, status: latestResult.verification_status === 'VALID' ? "completed" : "invalid" }
           });
         }
       }
@@ -178,7 +182,7 @@ const KYCPortal = () => {
     if (name.trim() === VALID_USERNAME && password.trim() === VALID_PASSWORD) {
       setAuthenticated(true);
     } else {
-      setAuthError('Invalid credentials. Access Denied.');
+      setAuthError('Invalid credentials. Please try again.');
     }
   };
 
@@ -217,7 +221,7 @@ const KYCPortal = () => {
     if (filesToUpload.length === 0) return alert('Please upload at least one document');
 
     initializePipeline();
-    setAgentLogs([{ text: `[System] Command Center initialized — ${filesToUpload.length} document(s) in queue`, time: new Date().toLocaleTimeString() }]);
+    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString() }]);
 
     const newDocIds = {};
 
@@ -229,12 +233,12 @@ const KYCPortal = () => {
         const data = await response.json();
         if (data.success && data.documentId) {
           newDocIds[key] = data.documentId;
-          setAgentLogs(prev => [...prev, { text: `[System] ✓ ${label} ingested — Agent routing initiated`, time: new Date().toLocaleTimeString() }]);
+          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString() }]);
         } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to ingest ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
         }
       } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
       }
     }
 
@@ -248,14 +252,14 @@ const KYCPortal = () => {
   const handleDemoUpload = async () => {
     setPreviewUrls({ passport: '/demo-passport.png', license: '/demo-dl.png', idCard: '/demo-id.png' });
     initializePipeline();
-    setAgentLogs([{ text: '[System] Demo mode activated — Injecting synthetic payload...', time: new Date().toLocaleTimeString() }]);
+    setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents...', time: new Date().toLocaleTimeString() }]);
 
     const newDocIds = {};
-    const docTypes = ['license']; 
-    
+    const docTypes = ['license'];
+
     for (const docType of docTypes) {
       try {
-        const response = await fetch(`${API_URL}/upload-demo`, { 
+        const response = await fetch(`${API_URL}/upload-demo`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ docType })
@@ -265,13 +269,13 @@ const KYCPortal = () => {
         if (data.success && data.documentId) {
           newDocIds[docType] = data.documentId;
         } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] ✗ ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
         }
       } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
       }
     }
-    
+
     if (Object.keys(newDocIds).length > 0) {
       setPollingDocIds(newDocIds);
     } else {
@@ -280,10 +284,10 @@ const KYCPortal = () => {
   };
 
   // Determine active agent based on logs
-  let activeAgent = 0; // 0=none, 1=OCR, 2=Validation, 3=OFAC, 4=Done
+  let activeAgent = 0;
   if (uploading) {
     const lastLog = agentLogs[agentLogs.length - 1]?.text || "";
-    if (lastLog.includes("[Form Recognizer]") || lastLog.includes("[Groq AI]") || lastLog.includes("[Azure Blob]")) activeAgent = 1;
+    if (lastLog.includes("[Form Recognizer]") || lastLog.includes("[Groq AI]") || lastLog.includes("[Azure Blob]") || lastLog.includes("[Gemini AI]") || lastLog.includes("[AI Agent]")) activeAgent = 1;
     else if (lastLog.includes("[Verification Agent]") || lastLog.includes("[Database]")) activeAgent = 2;
     else if (lastLog.includes("[OFAC Screening]")) activeAgent = 3;
     else if (lastLog.includes("[KYC Decision]")) activeAgent = 4;
@@ -293,223 +297,245 @@ const KYCPortal = () => {
   // === RENDER: LOGIN ===
   if (!authenticated) {
     return (
-      <div className="min-h-screen bg-[#050B14] flex flex-col relative overflow-hidden font-sans">
-        {/* Animated Background Mesh */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#F15840] rounded-full blur-[150px] opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-[#004a8b] rounded-full blur-[200px] opacity-30"></div>
-        
-        <header className="p-6 relative z-10 flex justify-center w-full">
-          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-16 w-auto brightness-0 invert opacity-90" />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex flex-col relative overflow-hidden font-sans">
+        {/* Subtle Coral/Blue Accent Blobs */}
+        <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[45%] bg-[#F15840] rounded-full blur-[180px] opacity-[0.08]"></div>
+        <div className="absolute bottom-[-15%] right-[-10%] w-[50%] h-[50%] bg-[#003a6b] rounded-full blur-[200px] opacity-[0.08]"></div>
+
+        <header className="p-6 relative z-10">
+          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-14 w-auto" />
         </header>
 
         <div className="flex-grow flex items-center justify-center px-4 relative z-10">
-          <div className="glass-dark p-10 w-full max-w-md rounded-3xl border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-[#F15840] to-purple-500"></div>
-            
+          <div className="bg-white/80 backdrop-blur-xl p-10 w-full max-w-md rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden">
+            {/* Top Gradient Bar */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#003a6b] via-[#F15840] to-[#003a6b]"></div>
+
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center shadow-lg">
-                <Lock className="w-8 h-8 text-[#F15840]" />
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FFF0ED] to-[#FFE0D9] border-2 border-[#F15840]/20 flex items-center justify-center shadow-lg shadow-[#F15840]/10">
+                <Lock className="w-7 h-7 text-[#F15840]" />
               </div>
             </div>
-            
-            <h2 className="text-2xl font-bold text-center text-white mb-2 tracking-wide">
-              KYC Command Center
+
+            <h2 className="text-2xl font-bold text-center text-[#001f3f] mb-1">
+              KYC Verification Portal
             </h2>
-            <p className="text-xs text-center text-slate-400 mb-8 uppercase tracking-widest">
-              Authorized Personnel Only
+            <p className="text-xs text-center text-gray-400 mb-8">
+              Secure access to the Agentic KYC Pipeline
             </p>
 
             <div className="space-y-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="AGENT_ID"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#F15840] transition-colors placeholder-slate-600 font-mono text-sm"
-                />
-              </div>
-              <div className="relative">
-                <input
-                  type="password"
-                  placeholder="PASSPHRASE"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  className="w-full px-5 py-4 bg-slate-900/50 border border-slate-700 text-white rounded-xl focus:outline-none focus:border-[#F15840] transition-colors placeholder-slate-600 font-mono text-sm"
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="Agent Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F15840]/40 focus:border-[#F15840] transition-all text-sm placeholder-gray-400"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-200 text-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#F15840]/40 focus:border-[#F15840] transition-all text-sm placeholder-gray-400"
+              />
               <button
                 onClick={handleLogin}
-                className="w-full bg-[#F15840] hover:bg-[#ff6a53] text-white font-bold px-4 py-4 rounded-xl transition-all duration-300 shadow-[0_0_20px_rgba(241,88,64,0.3)] hover:shadow-[0_0_30px_rgba(241,88,64,0.5)] uppercase tracking-wider text-sm mt-4"
+                className="w-full bg-gradient-to-r from-[#F15840] to-[#ff7b5e] hover:from-[#d44a35] hover:to-[#e5684e] text-white font-semibold px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
               >
-                Authenticate
+                Login
               </button>
             </div>
 
             {authError && (
-              <p className="mt-5 text-[#ff4a4a] text-xs font-mono text-center flex items-center justify-center bg-red-900/20 py-2 rounded-lg border border-red-900/50">
-                <ShieldAlert className="w-3 h-3 mr-2" /> {authError}
+              <p className="mt-4 text-red-500 text-sm text-center bg-red-50 py-2 rounded-lg border border-red-100 flex items-center justify-center">
+                <ShieldAlert className="w-3.5 h-3.5 mr-2" /> {authError}
               </p>
             )}
 
-            <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-               <button onClick={() => setAuthenticated(true)} className="text-[10px] text-slate-500 hover:text-white transition-colors font-mono uppercase tracking-widest underline decoration-slate-700 underline-offset-4">
-                 [ Bypass for Demo Evaluation ]
-               </button>
+            <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+              <p className="text-[10px] text-gray-400 mb-2">Evaluating this project?</p>
+              <button onClick={() => setAuthenticated(true)} className="inline-flex items-center space-x-1.5 text-xs font-bold text-[#F15840] hover:text-[#d44a35] transition-colors group">
+                <Play className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                <span className="underline underline-offset-4">Click here for Recruiter View</span>
+              </button>
             </div>
           </div>
         </div>
+
+        <footer className="text-center text-xs text-gray-400 py-4 relative z-10">
+          © 2025 Coforge. All rights reserved.
+        </footer>
       </div>
     );
   }
 
-  // === RENDER: DASHBOARD (SPLIT PANE) ===
+  // === RENDER: DASHBOARD (SPLIT PANE — Light Theme) ===
   const documents = [
-    { key: 'passport', label: 'Passport', file: passportFile, setter: setPassportFile },
-    { key: 'license', label: 'Driving License', file: licenseFile, setter: setLicenseFile },
-    { key: 'idCard', label: 'ID Card', file: idCardFile, setter: setIdCardFile },
+    { key: 'passport', label: 'Passport', icon: '\uD83D\uDEC2', file: passportFile, setter: setPassportFile, gradient: 'from-blue-500 to-indigo-600' },
+    { key: 'license', label: 'Driving License', icon: '\uD83D\uDE97', file: licenseFile, setter: setLicenseFile, gradient: 'from-emerald-500 to-teal-600' },
+    { key: 'idCard', label: 'ID Card', icon: '\uD83E\uDEAA', file: idCardFile, setter: setIdCardFile, gradient: 'from-purple-500 to-violet-600' },
   ];
   const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
 
   return (
-    <div className="h-screen w-screen bg-[#050B14] font-sans overflow-hidden flex flex-col text-slate-300">
-      {/* Top Navbar */}
-      <nav className="h-16 glass-dark border-b border-slate-800 flex items-center justify-between px-6 shrink-0 relative z-50">
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 font-sans overflow-hidden flex flex-col text-gray-700">
+
+      {/* Top Navbar — White Glassmorphism */}
+      <nav className="h-16 bg-white/80 backdrop-blur-lg border-b border-gray-200/70 flex items-center justify-between px-6 shrink-0 relative z-50 shadow-sm">
         <div className="flex items-center space-x-4">
-          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-10 w-auto brightness-0 invert opacity-90" />
-          <div className="h-6 w-px bg-slate-700"></div>
-          <span className="text-white font-semibold tracking-wider text-sm">AGENTIC KYC PIPELINE</span>
+          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-10 w-auto" />
+          <div className="h-6 w-px bg-gray-200"></div>
+          <span className="text-[#001f3f] font-bold tracking-wide text-sm">AGENTIC KYC PIPELINE</span>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <button
             onClick={handleDemoUpload}
             disabled={uploading}
-            className="flex items-center space-x-2 px-4 py-2 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/50 text-purple-300 rounded-lg text-xs font-bold transition-all disabled:opacity-50 uppercase tracking-widest"
+            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 shadow-md shadow-purple-500/20 hover:shadow-purple-500/30"
           >
-            <Play className="w-3 h-3" /> <span>Run Demo Payload</span>
+            <Play className="w-3 h-3" /> <span>Run Demo</span>
           </button>
         </div>
       </nav>
 
       {/* Main Grid Workspace */}
-      <div className="flex-1 p-6 grid grid-cols-12 gap-6 h-[calc(100vh-4rem)] relative z-10">
-        
+      <div className="flex-1 p-5 grid grid-cols-12 gap-5 h-[calc(100vh-4rem)] relative z-10 overflow-hidden">
+
         {/* LEFT PANE: Pipeline & Logs */}
-        <div className="col-span-12 lg:col-span-7 flex flex-col space-y-6 h-full">
-          
-          {/* Top: Architecture / Agent Graph */}
-          <div className="glass-dark rounded-2xl p-6 relative flex flex-col justify-center h-48 border border-slate-800">
-            <h3 className="absolute top-4 left-5 text-[10px] text-slate-500 font-bold tracking-widest uppercase flex items-center">
-              <Activity className="w-3 h-3 mr-2" /> Pipeline Telemetry
+        <div className="col-span-12 lg:col-span-7 flex flex-col space-y-5 h-full min-h-0">
+
+          {/* Pipeline Telemetry Graph */}
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 relative flex flex-col justify-center h-48 border border-gray-200/80 shadow-sm shrink-0">
+            <h3 className="absolute top-4 left-5 text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
+              <Activity className="w-3 h-3 mr-2 text-[#F15840]" /> Pipeline Telemetry
             </h3>
-            
+
             <div className="flex items-center justify-between mt-4 px-4 w-full max-w-2xl mx-auto relative">
               {/* Connecting Lines */}
-              <div className="absolute top-7 left-12 right-12 h-0.5 bg-slate-800 z-0"></div>
-              
+              <div className="absolute top-7 left-12 right-12 h-0.5 bg-gray-200 z-0"></div>
+
               {/* Animated Flow Line */}
               {uploading && (
                 <svg className="absolute top-7 left-12 right-12 h-1 z-0 overflow-visible" style={{ width: 'calc(100% - 96px)' }}>
-                  <line x1="0" y1="0" x2="100%" y2="0" stroke="#F15840" strokeWidth="2" strokeDasharray="10 10" className="animate-dash glow-text" />
+                  <line x1="0" y1="0" x2="100%" y2="0" stroke="#F15840" strokeWidth="2" strokeDasharray="10 10" className="animate-dash" />
                 </svg>
               )}
 
               <PipelineNode icon={FileText} title="Extraction" status={agentProgress?.agent1?.status} active={activeAgent === 1} />
               <PipelineNode icon={Database} title="Validation" status={agentProgress?.agent2?.status} active={activeAgent === 2} />
               <PipelineNode icon={ShieldAlert} title="OFAC" status={agentProgress?.agent3?.status} active={activeAgent === 3} />
-              <PipelineNode icon={CheckCircle} title="Decision" status={agentProgress?.kycComplete?.status} active={activeAgent === 4 || agentProgress?.kycComplete?.status} />
+              <PipelineNode icon={CheckCircle} title="Decision" status={agentProgress?.kycComplete?.status} active={activeAgent === 4 || (agentProgress?.kycComplete?.status && agentProgress?.kycComplete?.status !== 'idle')} />
             </div>
           </div>
 
-          {/* Bottom: Terminal */}
+          {/* Terminal Console */}
           <div className="flex-1 min-h-0">
             <AgentConsole logs={agentLogs} />
           </div>
         </div>
 
         {/* RIGHT PANE: Documents & Status */}
-        <div className="col-span-12 lg:col-span-5 flex flex-col space-y-6 h-full">
-          
+        <div className="col-span-12 lg:col-span-5 flex flex-col space-y-5 h-full min-h-0">
+
           {/* Upload / Preview Area */}
-          <div className="glass-dark rounded-2xl p-6 flex flex-col flex-1 min-h-0 border border-slate-800">
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 flex flex-col flex-1 min-h-0 border border-gray-200/80 shadow-sm">
             <div className="flex items-center justify-between mb-4 shrink-0">
-              <h3 className="text-[10px] text-slate-500 font-bold tracking-widest uppercase flex items-center">
-                <Upload className="w-3 h-3 mr-2" /> Data Ingestion
+              <h3 className="text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
+                <Upload className="w-3 h-3 mr-2 text-[#003a6b]" /> Upload Documents
               </h3>
               {selectedCount > 0 && (
-                <span className="text-[9px] font-bold px-2 py-1 rounded bg-[#F15840]/20 text-[#F15840] border border-[#F15840]/50 uppercase">
-                  {selectedCount} Loaded
+                <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-[#003a6b] border border-blue-200">
+                  {selectedCount}/3 selected
                 </span>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar space-y-4">
+            <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
               {documents.map(doc => {
                 const hasFile = doc.file || previewUrls[doc.key];
                 return (
-                  <div key={doc.key} className={`rounded-xl border border-slate-800 overflow-hidden bg-slate-900/50 transition-all ${hasFile ? 'border-blue-500/30' : 'hover:border-slate-600'}`}>
+                  <div key={doc.key} className={`rounded-xl overflow-hidden transition-all duration-300 ${hasFile ? 'border-2 border-blue-300 shadow-md' : 'border-2 border-dashed border-gray-200 hover:border-gray-300 hover:shadow-sm'}`}>
                     {hasFile ? (
-                      <div className="relative h-32 w-full group bg-slate-950 flex justify-center">
-                         <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain opacity-70 group-hover:opacity-100 transition-opacity" />
-                         
-                         {/* Laser Scanning Effect */}
-                         {uploading && activeAgent === 1 && (
-                           <>
-                             <div className="absolute inset-0 bg-blue-500/10 pointer-events-none"></div>
-                             <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840] animate-scan-laser pointer-events-none"></div>
-                           </>
-                         )}
+                      <div className="relative">
+                        {/* Card Header */}
+                        <div className={`bg-gradient-to-r ${doc.gradient} px-3 py-2 flex items-center justify-between`}>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm">{doc.icon}</span>
+                            <span className="text-white font-semibold text-xs">{doc.label}</span>
+                          </div>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
+                        </div>
 
-                         <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-red-500/80 rounded-md text-white transition-colors">
-                           <XCircle className="w-4 h-4" />
-                         </button>
+                        {/* Preview Image */}
+                        <div className="relative h-28 w-full bg-gray-50 flex justify-center group">
+                          <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+
+                          {/* Laser Scanning Effect */}
+                          {uploading && activeAgent === 1 && (
+                            <>
+                              <div className="absolute inset-0 bg-[#F15840]/5 pointer-events-none"></div>
+                              <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840,0_0_30px_#F15840] animate-scan-laser pointer-events-none"></div>
+                            </>
+                          )}
+
+                          <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors shadow-sm border border-gray-100">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <label className="flex flex-col items-center justify-center h-32 cursor-pointer group">
-                        <Upload className="w-6 h-6 text-slate-600 group-hover:text-[#F15840] transition-colors mb-2" />
-                        <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider group-hover:text-slate-300">{doc.label}</span>
+                      <label className="flex flex-col items-center justify-center h-28 cursor-pointer group bg-white hover:bg-gray-50 transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-[#FFF0ED] flex items-center justify-center mb-2 transition-colors">
+                          <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#F15840] transition-colors" />
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium group-hover:text-gray-700">{doc.label}</span>
+                        <span className="text-[9px] text-gray-300 mt-0.5">PDF, PNG, JPG • Max 10MB</span>
                         <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])} />
                       </label>
                     )}
                   </div>
-                )
+                );
               })}
             </div>
 
             <button
               onClick={handleUpload}
               disabled={uploading || selectedCount === 0}
-              className={`mt-4 w-full py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
+              className={`mt-4 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
                 ${uploading || selectedCount === 0
-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
-                  : 'bg-[#003a6b] hover:bg-[#004a8b] text-white shadow-[0_0_20px_rgba(0,58,107,0.5)] border border-blue-400/30 glow-text'}`}
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                  : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-lg shadow-blue-900/20 hover:shadow-blue-900/30 hover:-translate-y-0.5'}`}
             >
               <Cpu className="w-4 h-4" />
-              <span>{uploading ? 'PIPELINE ACTIVE' : 'INITIALIZE PIPELINE'}</span>
+              <span>{uploading ? 'Pipeline Active...' : `Upload & Verify${selectedCount > 0 ? ` (${selectedCount})` : ''}`}</span>
             </button>
           </div>
 
-          {/* Verification Status Card */}
-          {agentProgress?.kycComplete?.status && (
-            <div className={`rounded-2xl p-6 border flex items-center justify-between shrink-0 shadow-2xl transition-all duration-500
-              ${agentProgress.kycComplete.status === 'completed' 
-                ? 'bg-emerald-900/30 border-emerald-500/50' 
+          {/* Final Decision Card */}
+          {agentProgress?.kycComplete?.status && agentProgress.kycComplete.status !== 'idle' && (
+            <div className={`rounded-2xl p-5 border-2 flex items-center justify-between shrink-0 shadow-lg transition-all duration-500
+              ${agentProgress.kycComplete.status === 'completed'
+                ? 'bg-emerald-50 border-emerald-300'
                 : agentProgress.kycComplete.status === 'invalid'
-                ? 'bg-red-900/30 border-red-500/50'
-                : 'bg-slate-800 border-slate-700'}`}>
+                ? 'bg-red-50 border-red-300'
+                : 'bg-gray-50 border-gray-200'}`}>
               <div>
-                <h4 className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
+                <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
                 <div className="flex items-center space-x-2">
-                   {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-6 h-6 text-emerald-500" />}
-                   {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-6 h-6 text-red-500" />}
-                   <span className={`text-xl font-bold tracking-wide
-                     ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-400' 
-                     : agentProgress.kycComplete.status === 'invalid' ? 'text-red-400' : 'text-slate-300'}`}>
-                     {agentProgress.kycComplete.status === 'completed' ? 'APPROVED' 
-                     : agentProgress.kycComplete.status === 'invalid' ? 'REJECTED' : 'AWAITING...'}
-                   </span>
+                  {agentProgress.kycComplete.status === 'completed' && <CheckCircle className="w-7 h-7 text-emerald-500" />}
+                  {agentProgress.kycComplete.status === 'invalid' && <XCircle className="w-7 h-7 text-red-500" />}
+                  <span className={`text-xl font-bold tracking-wide
+                    ${agentProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
+                    : agentProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
+                    {agentProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
+                    : agentProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
+                  </span>
                 </div>
+                {agentProgress.agent3?.message && (
+                  <p className="text-xs text-red-500 mt-1.5">{agentProgress.agent3.message}</p>
+                )}
               </div>
             </div>
           )}
