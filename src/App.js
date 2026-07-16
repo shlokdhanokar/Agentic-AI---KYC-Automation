@@ -577,8 +577,8 @@ const KYCPortal = () => {
                       {/* File Info Bar */}
                       <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100">
                         <div className="flex-1 min-w-0 mr-2">
-                          <p className="text-xs font-semibold text-gray-700 truncate">{doc.file.name}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{formatFileSize(doc.file.size)}</p>
+                          <p className="text-xs font-semibold text-gray-700 truncate">{doc.file ? doc.file.name : `Demo ${doc.label}`}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{doc.file ? formatFileSize(doc.file.size) : 'Sample Demo File'}</p>
                         </div>
                         <button
                           onClick={() => handleFileRemove(doc.key, doc.setter)}
