@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Upload, CheckCircle, XCircle, Play, Lock, Database, ShieldAlert, Cpu, Activity, User, Edit2, MessageSquare, Send, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan
+  Upload, CheckCircle, XCircle, Play, Lock, Database, ShieldAlert, Cpu, Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -361,9 +361,6 @@ const KYCPortal = () => {
   const [agentProgressMap, setAgentProgressMap] = useState({});
   const [extractedDataMap, setExtractedDataMap] = useState({});
   const [extractedDocTypeMap, setExtractedDocTypeMap] = useState({});
-  const [chatInput, setChatInput] = useState('');
-  const [isChatting, setIsChatting] = useState(false);
-  const [currentDocId] = useState(null);
 
 
   const VALID_USERNAME = "shlok";
@@ -430,32 +427,6 @@ const KYCPortal = () => {
   }, [pollingDocIds]);
 
   
-  const handleChat = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim() || !currentDocId) return;
-    
-    const query = chatInput;
-    setChatInput('');
-    setIsChatting(true);
-    
-    // Add user message to logs locally first for immediate feedback
-    setAgentLogs(prev => [...prev, { text: `[Human Agent] ${query}`, time: new Date().toLocaleTimeString(), color: 'text-blue-400' }]);
-    
-    try {
-      const res = await fetch(`${API_URL}/agent-chat/${currentDocId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAgentLogs(prev => [...prev, { text: `[AI Agent] ${data.answer}`, time: new Date().toLocaleTimeString(), color: 'text-fuchsia-400' }]);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    setIsChatting(false);
-  };
 
   const handleLogin = () => {
     setAuthError('');
@@ -697,22 +668,22 @@ const KYCPortal = () => {
 
       {/* Main Grid Workspace */}
       {currentTab === 'live_kyc' ? (
-      <div className="flex-1 p-5 grid grid-cols-12 gap-5 h-[calc(100vh-4rem)] relative z-10 overflow-hidden">
+      <div className="flex-1 p-4 grid grid-cols-12 gap-4 relative z-10 overflow-hidden">
 
-        {/* LEFT PANE: Pipeline & Logs */}
-        <div className="col-span-12 lg:col-span-7 flex flex-col space-y-5 h-full min-h-0">
+        {/* LEFT PANE: Pipeline Telemetry + Agent Console */}
+        <div className="col-span-12 lg:col-span-7 flex flex-col gap-4 h-full min-h-0">
 
-          {/* Pipeline Telemetry Graph */}
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-6 relative flex flex-col justify-center h-48 border border-gray-200/80 shadow-sm shrink-0">
-            <h3 className="absolute top-4 left-5 text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
-              <Activity className="w-3 h-3 mr-2 text-[#F15840]" /> Pipeline Telemetry
+          {/* Pipeline Telemetry */}
+          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-5 relative border border-gray-200/80 shadow-sm shrink-0">
+            <h3 className="text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center mb-5">
+              <Activity className="w-3 h-3 mr-2 text-[#F15840]" /> Multi-Agent Pipeline
             </h3>
 
-            <div className="flex items-center justify-between mt-4 px-4 w-full max-w-2xl mx-auto relative">
-              {/* Connecting Lines */}
+            <div className="flex items-center justify-between px-4 w-full max-w-2xl mx-auto relative">
+              {/* Connecting Line */}
               <div className="absolute top-7 left-12 right-12 h-0.5 bg-gray-200 z-0"></div>
 
-              {/* Animated Flow Line */}
+              {/* Animated Flow */}
               {uploading && (
                 <svg className="absolute top-7 left-12 right-12 h-1 z-0 overflow-visible" style={{ width: 'calc(100% - 96px)' }}>
                   <line x1="0" y1="0" x2="100%" y2="0" stroke="#F15840" strokeWidth="2" strokeDasharray="10 10" className="animate-dash" />
@@ -722,135 +693,115 @@ const KYCPortal = () => {
               <PipelineNode icon={Scan} title="Vision OCR Agent" status={displayProgress?.agent1?.status} active={activeAgent === 1} />
               <PipelineNode icon={Database} title="Database Agent" status={displayProgress?.agent2?.status} active={activeAgent === 2} />
               <PipelineNode icon={ShieldAlert} title="Compliance Agent" status={displayProgress?.agent3?.status} active={activeAgent === 3} />
-              <PipelineNode icon={Brain} title="Orchestrator Agent" status={displayProgress?.kycComplete?.status} active={activeAgent === 4 || (displayProgress?.kycComplete?.status && displayProgress?.kycComplete?.status !== 'idle')} />
+              <PipelineNode icon={Brain} title="Orchestrator" status={displayProgress?.kycComplete?.status} active={activeAgent === 4 || (displayProgress?.kycComplete?.status && displayProgress?.kycComplete?.status !== 'idle')} />
             </div>
           </div>
 
-
-          {/* Agentic Chat UI */}
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-gray-200/80 shadow-sm shrink-0">
-            <form onSubmit={handleChat} className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/20 shrink-0">
-                <MessageSquare className="w-4 h-4 text-white" />
-              </div>
-              <input 
-                type="text" 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={currentDocId ? "Ask the AI Agent about this document..." : "Pipeline idle..."}
-                disabled={!currentDocId || isChatting}
-                className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-fuchsia-400/40 focus:border-fuchsia-400 transition-all placeholder-gray-400"
-              />
-              <button 
-                type="submit" 
-                disabled={!currentDocId || isChatting || !chatInput.trim()}
-                className="p-2.5 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-600 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
-
-          {/* Terminal Console */}
+          {/* Agent Console — fills remaining space */}
           <div className="flex-1 min-h-0">
             <AgentConsole logs={agentLogs} />
           </div>
         </div>
 
-        {/* RIGHT PANE: Documents & Status */}
+        {/* RIGHT PANE: Document Pipeline */}
         <div className="col-span-12 lg:col-span-5 flex flex-col h-full min-h-0 bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
           {/* Header */}
-          <div className="p-5 flex items-center justify-between border-b border-gray-100 bg-white/80 shrink-0">
+          <div className="px-5 py-3 flex items-center justify-between border-b border-gray-100 bg-white/80 shrink-0">
             <h3 className="text-[10px] text-gray-400 font-bold tracking-widest uppercase flex items-center">
               <Upload className="w-3 h-3 mr-2 text-[#003a6b]" /> Document Pipeline
             </h3>
-            {selectedCount > 0 && (
+            {Object.keys(extractedDataMap).length > 0 && (
               <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-[#003a6b] border border-blue-200">
-                {selectedCount}/3 processed
+                {Object.keys(extractedDataMap).length}/{documents.length} verified
               </span>
             )}
           </div>
           
-          {/* Scrollable Document List */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-8 bg-gray-50/50">
+          {/* Scrollable Document Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{scrollbarWidth: 'thin'}}>
             {documents.map(doc => {
               const hasFile = doc.file || previewUrls[doc.key];
               const docData = extractedDataMap[doc.key];
               const docProgress = agentProgressMap[doc.key];
+              const isApproved = docProgress?.kycComplete?.status === 'completed';
+              const isRejected = docProgress?.kycComplete?.status === 'invalid';
               
               return (
-                <div key={doc.key} className="space-y-4">
-                  {/* Preview Card */}
-                  <div className={`rounded-xl overflow-hidden transition-all duration-300 ${hasFile ? 'border-2 border-blue-300 shadow-md bg-white' : 'border-2 border-dashed border-gray-200 hover:border-gray-300 hover:shadow-sm bg-white'}`}>
-                    {hasFile ? (
-                      <div className="relative">
-                        <div className={`bg-gradient-to-r ${doc.gradient} px-3 py-2 flex items-center justify-between`}>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm">{doc.icon}</span>
-                            <span className="text-white font-semibold text-xs">{doc.label}</span>
-                          </div>
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>
+                <div key={doc.key} className={`rounded-xl border transition-all duration-500 overflow-hidden ${
+                  isApproved ? 'border-emerald-300 shadow-md shadow-emerald-100' :
+                  isRejected ? 'border-red-300 shadow-md shadow-red-100' :
+                  hasFile ? 'border-blue-200 shadow-sm' :
+                  'border-dashed border-gray-200 hover:border-gray-300'
+                } bg-white`}>
+                
+                  {/* Document Header with Preview */}
+                  {hasFile ? (
+                    <div>
+                      <div className={`bg-gradient-to-r ${doc.gradient} px-3 py-2 flex items-center justify-between`}>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm">{doc.icon}</span>
+                          <span className="text-white font-semibold text-xs">{doc.label}</span>
                         </div>
-                        <div className="relative h-28 w-full bg-gray-50 flex justify-center group">
-                          <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain group-hover:scale-105 transition-transform duration-300" />
-                          {uploading && activeAgent === 1 && (
-                            <>
-                              <div className="absolute inset-0 bg-[#F15840]/5 pointer-events-none"></div>
-                              <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840,0_0_30px_#F15840] animate-scan-laser pointer-events-none"></div>
-                            </>
-                          )}
-                          <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors shadow-sm border border-gray-100">
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                        <div className="flex items-center space-x-2">
+                          {isApproved && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/30 text-white flex items-center space-x-1"><CheckCircle className="w-3 h-3" /><span>PASSED</span></span>}
+                          {isRejected && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-400/30 text-white flex items-center space-x-1"><XCircle className="w-3 h-3" /><span>FAILED</span></span>}
+                          {!isApproved && !isRejected && <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">READY</span>}
                         </div>
                       </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center h-28 cursor-pointer group hover:bg-gray-50 transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-gray-100 group-hover:bg-[#FFF0ED] flex items-center justify-center mb-2 transition-colors">
-                          <Upload className="w-5 h-5 text-gray-400 group-hover:text-[#F15840] transition-colors" />
-                        </div>
-                        <span className="text-xs text-gray-500 font-medium group-hover:text-gray-700">{doc.label}</span>
-                        <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])} />
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Extracted Data Card */}
-                  {docData && (
-                    <ExtractedDataCard 
-                      data={docData} 
-                      docType={extractedDocTypeMap[doc.key]} 
-                      documentId={pollingDocIds[doc.key]} 
-                      onRevalidate={() => setPollingDocIds({[doc.key]: pollingDocIds[doc.key]})} 
-                      agentProgress={docProgress || initialAgentProgress} 
-                    />
+                      <div className="relative h-24 w-full bg-gray-50 flex justify-center group">
+                        <img src={previewUrls[doc.key]} alt="preview" className="h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                        {uploading && activeAgent === 1 && (
+                          <>
+                            <div className="absolute inset-0 bg-[#F15840]/5 pointer-events-none"></div>
+                            <div className="absolute w-full h-[2px] bg-[#F15840] shadow-[0_0_15px_#F15840,0_0_30px_#F15840] animate-scan-laser pointer-events-none"></div>
+                          </>
+                        )}
+                        <button onClick={() => handleFileRemove(doc.key, doc.setter)} className="absolute top-1.5 right-1.5 p-1 bg-white/90 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-500 transition-colors shadow-sm border border-gray-100">
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center h-20 cursor-pointer group hover:bg-gray-50 transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-[#FFF0ED] flex items-center justify-center mb-1.5 transition-colors">
+                        <Upload className="w-4 h-4 text-gray-400 group-hover:text-[#F15840] transition-colors" />
+                      </div>
+                      <span className="text-[11px] text-gray-500 font-medium group-hover:text-gray-700">{doc.label}</span>
+                      <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])} />
+                    </label>
                   )}
 
-                  {/* Final Decision Card */}
+                  {/* Extracted Data — Collapsed inside card */}
+                  {docData && (
+                    <div className="border-t border-gray-100">
+                      <ExtractedDataCard 
+                        data={docData} 
+                        docType={extractedDocTypeMap[doc.key]} 
+                        documentId={pollingDocIds[doc.key]} 
+                        onRevalidate={() => setPollingDocIds({[doc.key]: pollingDocIds[doc.key]})} 
+                        agentProgress={docProgress || initialAgentProgress} 
+                      />
+                    </div>
+                  )}
+
+                  {/* Inline Decision Badge */}
                   {docProgress?.kycComplete?.status && docProgress.kycComplete.status !== 'idle' && (
-                    <div className={`rounded-xl p-5 border-2 flex flex-col shrink-0 shadow-sm transition-all duration-500
-                      ${docProgress.kycComplete.status === 'completed'
-                        ? 'bg-emerald-50 border-emerald-300'
-                        : docProgress.kycComplete.status === 'invalid'
-                        ? 'bg-red-50 border-red-300'
-                        : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Final Decision</h4>
-                          <div className="flex items-center space-x-2">
-                            {docProgress.kycComplete.status === 'completed' && <CheckCircle className="w-6 h-6 text-emerald-500" />}
-                            {docProgress.kycComplete.status === 'invalid' && <XCircle className="w-6 h-6 text-red-500" />}
-                            <span className={`text-lg font-bold tracking-wide
-                              ${docProgress.kycComplete.status === 'completed' ? 'text-emerald-600'
-                              : docProgress.kycComplete.status === 'invalid' ? 'text-red-600' : 'text-gray-500'}`}>
-                              {docProgress.kycComplete.status === 'completed' ? 'KYC APPROVED'
-                              : docProgress.kycComplete.status === 'invalid' ? 'KYC REJECTED' : 'PROCESSING...'}
-                            </span>
-                          </div>
-                        </div>
+                    <div className={`px-4 py-3 border-t flex items-center justify-between ${
+                      isApproved ? 'bg-emerald-50 border-emerald-100' :
+                      isRejected ? 'bg-red-50 border-red-100' :
+                      'bg-gray-50 border-gray-100'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        {isApproved && <CheckCircle className="w-5 h-5 text-emerald-500" />}
+                        {isRejected && <XCircle className="w-5 h-5 text-red-500" />}
+                        <span className={`text-sm font-bold tracking-wide ${
+                          isApproved ? 'text-emerald-600' : isRejected ? 'text-red-600' : 'text-gray-500'
+                        }`}>
+                          {isApproved ? 'KYC APPROVED' : isRejected ? 'KYC REJECTED' : 'PROCESSING...'}
+                        </span>
                       </div>
                       {docProgress.agent3?.message && !docData?.reasoning && (
-                        <p className="text-xs text-red-500 mt-1.5">{docProgress.agent3.message}</p>
+                        <span className="text-[10px] text-red-400 max-w-[50%] truncate">{docProgress.agent3.message}</span>
                       )}
                     </div>
                   )}
@@ -858,10 +809,11 @@ const KYCPortal = () => {
               );
             })}
             
+            {/* Upload Button */}
             <button
               onClick={handleUpload}
               disabled={uploading || selectedCount === 0}
-              className={`mt-2 w-full py-3.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2 shrink-0
+              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center space-x-2
                 ${uploading || selectedCount === 0
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                   : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] hover:from-[#002a54] hover:to-[#004a8b] text-white shadow-md hover:-translate-y-0.5'}`}
