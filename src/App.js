@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Upload, CheckCircle, XCircle, Play, Lock, Database, ShieldAlert, Cpu, Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan
 } from 'lucide-react';
@@ -106,15 +106,17 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
   const [isSaving, setIsSaving] = useState(false);
   
   // Filter out confidence and reasoning from display
-  const displayData = data ? Object.fromEntries(
-    Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
-  ) : {};
+  const displayData = useMemo(() => {
+    return data ? Object.fromEntries(
+      Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
+    ) : {};
+  }, [data]);
   
   const entries = Object.entries(displayData);
 
   useEffect(() => {
     setEditedData(displayData);
-  }, [data, displayData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data, displayData]); 
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -465,7 +467,7 @@ const KYCPortal = () => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [activePollingId, activePollingKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePollingId, activePollingKey]); 
 
   
 
