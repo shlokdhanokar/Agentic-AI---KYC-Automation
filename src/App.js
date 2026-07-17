@@ -502,7 +502,7 @@ const KYCPortal = () => {
     setExtractedDocTypeMap({});
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     const filesToUpload = [];
     if (passportFile) filesToUpload.push({ key: 'passport', label: 'Passport', file: passportFile });
     if (licenseFile) filesToUpload.push({ key: 'license', label: 'Driving License', file: licenseFile });
@@ -511,67 +511,23 @@ const KYCPortal = () => {
     if (filesToUpload.length === 0) return alert('Please upload at least one document');
 
     initializePipeline();
-    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
-
-    const newDocIds = {};
-
-    for (const { key, label, file } of filesToUpload) {
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-        const data = await response.json();
-        if (data.success && data.documentId) {
-          newDocIds[key] = data.documentId;
-          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
-        } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
-        }
-      } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
-      }
-    }
-
-    if (Object.keys(newDocIds).length > 0) {
-      setPollingDocIds(newDocIds);
-    } else {
-      setUploading(false);
-    }
+    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued for sequential processing.`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+    setUploadQueue(filesToUpload);
+    setCurrentDocIndex(0);
   };
 
-  const handleDemoUpload = async () => {
+  const handleDemoUpload = () => {
     setPreviewUrls({ passport: '/demo-passport.png', license: '/demo-dl.png', idCard: '/demo-id.png' });
     initializePipeline();
-    setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents...', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
-
-    const newDocIds = {};
-    const docTypes = ['passport', 'license', 'idCard'];
-
-    for (const docType of docTypes) {
-      try {
-        const response = await fetch(`${API_URL}/upload-demo`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docType })
-        });
-        const data = await response.json();
-
-        if (data.success && data.documentId) {
-          newDocIds[docType] = data.documentId;
-        } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 ${data.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
-        }
-      } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
-      }
-    }
-
-    if (Object.keys(newDocIds).length > 0) {
-      setPollingDocIds(newDocIds);
-    } else {
-      setUploading(false);
-    }
+    setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents for sequential processing...', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+    setUploadQueue([
+      { key: 'passport', label: 'Passport', isDemo: true },
+      { key: 'license', label: 'Driving License', isDemo: true },
+      { key: 'idCard', label: 'ID Card', isDemo: true }
+    ]);
+    setCurrentDocIndex(0);
   };
+
 
   // Determine active agent based on logs
   let activeAgent = 0;
