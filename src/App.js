@@ -474,7 +474,7 @@ const KYCPortal = () => {
     if (filesToUpload.length === 0) return alert('Please upload at least one document');
 
     initializePipeline();
-    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString() }]);
+    setAgentLogs([{ text: `[System] KYC Pipeline initialized \u2014 ${filesToUpload.length} document(s) queued`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
 
     const newDocIds = {};
 
@@ -486,12 +486,12 @@ const KYCPortal = () => {
         const data = await response.json();
         if (data.success && data.documentId) {
           newDocIds[key] = data.documentId;
-          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString() }]);
+          setAgentLogs(prev => [...prev, { text: `[System] \u2713 ${label} uploaded \u2014 Processing started`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
         } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Failed to upload ${label}: ${data.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
         }
       } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
       }
     }
 
@@ -505,7 +505,7 @@ const KYCPortal = () => {
   const handleDemoUpload = async () => {
     setPreviewUrls({ passport: '/demo-passport.png', license: '/demo-dl.png', idCard: '/demo-id.png' });
     initializePipeline();
-    setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents...', time: new Date().toLocaleTimeString() }]);
+    setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents...', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
 
     const newDocIds = {};
     const docTypes = ['passport', 'license', 'idCard'];
@@ -522,10 +522,10 @@ const KYCPortal = () => {
         if (data.success && data.documentId) {
           newDocIds[docType] = data.documentId;
         } else {
-          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 ${data.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+          setAgentLogs(prev => [...prev, { text: `[Error] \u2717 ${data.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
         }
       } catch (error) {
-        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString(), error: true }]);
+        setAgentLogs(prev => [...prev, { text: `[Error] \u2717 Network error: ${error.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
       }
     }
 
