@@ -99,13 +99,11 @@ const PipelineNode = ({ icon: Icon, title, status, active }) => {
 };
 
 
-// === EXTRACTED DATA CARD WITH TYPEWRITER EFFECT ===
+// === EXTRACTED DATA CARD (NO ANIMATION) ===
 const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgress }) => {
-  const [visibleFields, setVisibleFields] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
-  const dataFingerprint = useRef('');
   
   // Filter out confidence and reasoning from display
   const displayData = data ? Object.fromEntries(
@@ -115,23 +113,8 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
   const entries = Object.entries(displayData);
 
   useEffect(() => {
-    if (entries.length === 0) return;
-    const fp = JSON.stringify(data);
-    if (fp === dataFingerprint.current) return;
-    dataFingerprint.current = fp;
-    setVisibleFields(0);
     setEditedData(displayData);
-    const timer = setInterval(() => {
-      setVisibleFields(prev => {
-        if (prev >= entries.length) {
-          clearInterval(timer);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 120);
-    return () => clearInterval(timer);
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -188,7 +171,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
 
       {/* Fields */}
       <div className="p-4 space-y-2">
-        {entries.slice(0, visibleFields).map(([key, value]) => (
+        {entries.map(([key, value]) => (
           <div key={key} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-gray-50/80 border border-gray-100 animate-fade-in">
             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{key}</span>
             {isEditing ? (
@@ -203,12 +186,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
             )}
           </div>
         ))}
-        {visibleFields < entries.length && !isEditing && (
-          <div className="flex items-center space-x-2 py-1.5 px-3">
-            <div className="w-2 h-2 rounded-full bg-[#F15840] animate-pulse"></div>
-            <span className="text-[10px] text-gray-400 font-mono">Extracting fields...</span>
-          </div>
-        )}
+
       </div>
     </div>
   );
@@ -359,7 +337,10 @@ const KYCPortal = () => {
   const [uploading, setUploading] = useState(false);
 
   const [agentLogs, setAgentLogs] = useState([]);
-  const [pollingDocIds, setPollingDocIds] = useState({});
+  const [uploadQueue, setUploadQueue] = useState([]);
+  const [currentDocIndex, setCurrentDocIndex] = useState(-1);
+  const [activePollingId, setActivePollingId] = useState(null);
+  const [activePollingKey, setActivePollingKey] = useState(null);
   const pollingRef = useRef(null);
 
   const [agentProgressMap, setAgentProgressMap] = useState({});
@@ -371,55 +352,111 @@ const KYCPortal = () => {
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
 
-  // Poll the backend for processing logs
+  // Handle sequential queue
   useEffect(() => {
-    const entries = Object.entries(pollingDocIds);
-    if (entries.length === 0) return;
+    if (uploadQueue.length > 0 && currentDocIndex < uploadQueue.length && !activePollingId) {
+      const startNextDoc = async () => {
+        const item = uploadQueue[currentDocIndex];
+        setSelectedDoc(item.key); // Auto-select the active tab
+        setAgentLogs(prev => [...prev, { text: `[System] Starting KYC process for ${item.label}...`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+        
+        let docIdToPoll = null;
+        if (item.file) {
+          const formData = new FormData();
+          formData.append('file', item.file);
+          try {
+            const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+              docIdToPoll = data.documentId;
+              setAgentLogs(prev => [...prev, { text: `[System] ✓ ${item.label} uploaded — Initializing agents`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+            } else {
+              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to upload ${item.label}: ${data.message}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
+            }
+          } catch (e) {
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error uploading ${item.label}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
+          }
+        } else if (item.isDemo) {
+          try {
+            const res = await fetch(`${API_URL}/upload-demo`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ docType: item.key })
+            });
+            const data = await res.json();
+            if (data.success) {
+              docIdToPoll = data.documentId;
+            } else {
+              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to load demo for ${item.label}`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
+            }
+          } catch (e) {
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error loading demo`, time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
+          }
+        }
+
+        if (docIdToPoll) {
+          setActivePollingId(docIdToPoll);
+          setActivePollingKey(item.key);
+        } else {
+          // If it failed to upload/load, just skip to the next
+          setCurrentDocIndex(prev => prev + 1);
+        }
+      };
+      startNextDoc();
+    } else if (uploadQueue.length > 0 && currentDocIndex >= uploadQueue.length) {
+      setUploading(false);
+      setAgentLogs(prev => [...prev, { text: '[System] ✓ All documents processed. Pipeline idle.', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+      setUploadQueue([]);
+      setCurrentDocIndex(-1);
+    }
+  }, [uploadQueue, currentDocIndex, activePollingId]);
+
+  // Poll the backend for the *active* document only
+  useEffect(() => {
+    if (!activePollingId) return;
+
+    let baseLogsLength = agentLogs.length;
 
     const poll = async () => {
-      let combinedLogs = [];
-      let allDone = true;
-
-      for (const [docKey, docId] of entries) {
-        try {
-          const res = await fetch(`${API_URL}/process-logs/${docId}`);
-          const data = await res.json();
-          if (data.logs) {
-            const prefixed = entries.length > 1
-              ? data.logs.map(l => ({ ...l, text: `[${docKey.toUpperCase()}] ${l.text}` }))
-              : data.logs;
-            combinedLogs = [...combinedLogs, ...prefixed];
-          }
-          if (data.status !== 'completed' && data.status !== 'error') {
-            allDone = false;
-            if (data.progress) {
-                setAgentProgressMap(prev => ({ ...prev, [docKey]: data.progress }));
-            }
-          }
-          if (data.status === 'completed' || data.status === 'error') {
-            const finalProgress = {
-              agent1: { name: "OCR Processing", progress: 100, status: "completed" },
-              agent2: { name: "Data Validation", progress: 100, status: (data.verification_status === 'VALID' || (data.verification_status === 'INVALID' && data.message?.includes('OFAC'))) ? "completed" : "invalid" },
-              agent3: { name: "OFAC Screening", progress: 100, status: data.verification_status === 'VALID' ? "completed" : (data.message?.includes('OFAC') ? "invalid" : "idle"), message: data.message },
-              kycComplete: { name: "KYC Decision", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid" }
-            };
-            setAgentProgressMap(prev => ({ ...prev, [docKey]: finalProgress }));
-            if (data.document_data) {
-              setExtractedDataMap(prev => prev[docKey] ? prev : { ...prev, [docKey]: data.document_data });
-              setExtractedDocTypeMap(prev => prev[docKey] ? prev : { ...prev, [docKey]: data.document_type || 'unknown' });
-            }
-          }
-        } catch (err) {
-          console.error('Polling error:', err);
+      try {
+        const res = await fetch(`${API_URL}/process-logs/${activePollingId}`);
+        const data = await res.json();
+        
+        if (data.logs) {
+          // Only take new logs we haven't rendered for this doc yet
+          const newLogs = data.logs.map(l => ({ ...l, text: `[${activePollingKey.toUpperCase()}] ${l.text}` }));
+          setAgentLogs(prev => {
+            // Keep the logs from previous docs + the newly polled logs for this doc
+            const historicLogs = prev.filter(l => !l.text.includes(`[${activePollingKey.toUpperCase()}] `));
+            return [...historicLogs, ...newLogs];
+          });
         }
-      }
+        
+        if (data.progress) {
+          setAgentProgressMap(prev => ({ ...prev, [activePollingKey]: data.progress }));
+        }
 
-      setAgentLogs(combinedLogs);
-
-      if (allDone) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-        setUploading(false);
+        if (data.status === 'completed' || data.status === 'error') {
+          const finalProgress = {
+            agent1: { name: "OCR Processing", progress: 100, status: "completed" },
+            agent2: { name: "Data Validation", progress: 100, status: (data.verification_status === 'VALID' || (data.verification_status === 'INVALID' && data.message?.includes('OFAC'))) ? "completed" : "invalid" },
+            agent3: { name: "OFAC Screening", progress: 100, status: data.verification_status === 'VALID' ? "completed" : (data.message?.includes('OFAC') ? "invalid" : "idle"), message: data.message },
+            kycComplete: { name: "KYC Decision", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid" }
+          };
+          setAgentProgressMap(prev => ({ ...prev, [activePollingKey]: finalProgress }));
+          if (data.document_data) {
+            setExtractedDataMap(prev => ({ ...prev, [activePollingKey]: data.document_data }));
+            setExtractedDocTypeMap(prev => ({ ...prev, [activePollingKey]: data.document_type || 'unknown' }));
+          }
+          
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+          setActivePollingId(null);
+          setActivePollingKey(null);
+          setCurrentDocIndex(prev => prev + 1); // Trigger next doc
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
       }
     };
 
@@ -429,7 +466,7 @@ const KYCPortal = () => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [pollingDocIds]);
+  }, [activePollingId, activePollingKey]);
 
   
 
@@ -635,7 +672,9 @@ const KYCPortal = () => {
   const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
 
   // Aggregate KYC decision — only approve when ALL docs pass
-  const processedDocKeys = Object.keys(pollingDocIds);
+  const processedDocKeys = [passportFile, licenseFile, idCardFile].filter(Boolean).length > 0 
+    ? (passportFile ? ['passport'] : []).concat(licenseFile ? ['license'] : []).concat(idCardFile ? ['idCard'] : [])
+    : ['passport', 'license', 'idCard']; // For demo mode
   const allDocsProcessed = processedDocKeys.length > 0 && processedDocKeys.every(k => {
     const p = agentProgressMap[k];
     return p?.kycComplete?.status === 'completed' || p?.kycComplete?.status === 'invalid';
@@ -747,7 +786,7 @@ const KYCPortal = () => {
           {/* Extracted Data for Selected Document */}
           <div className="flex-1 min-h-0 bg-white/70 backdrop-blur-md rounded-xl border border-gray-200/80 shadow-sm overflow-auto">
             {selDocData ? (
-              <ExtractedDataCard data={selDocData} docType={selDocType} documentId={pollingDocIds[selectedDoc]} onRevalidate={() => setPollingDocIds({[selectedDoc]: pollingDocIds[selectedDoc]})} agentProgress={selDocProgress || initialAgentProgress} />
+              <ExtractedDataCard data={selDocData} docType={selDocType} documentId={activePollingKey === selectedDoc ? activePollingId : null} onRevalidate={() => {}} agentProgress={selDocProgress || initialAgentProgress} />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-300 p-6">
                 <User className="w-8 h-8 mb-2 opacity-50" />

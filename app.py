@@ -699,7 +699,7 @@ def add_log(document_id, text, error=False):
     import time
     log_entry = {
         'text': text,
-        'time': datetime.now().strftime('%H:%M:%S'),
+        'time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%H:%M:%S'),
         'error': error
     }
     database.add_log_to_document(document_id, log_entry)
