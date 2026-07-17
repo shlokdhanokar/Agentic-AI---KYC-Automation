@@ -114,7 +114,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
 
   useEffect(() => {
     setEditedData(displayData);
-  }, [data]);
+  }, [data, displayData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -415,7 +415,6 @@ const KYCPortal = () => {
   useEffect(() => {
     if (!activePollingId) return;
 
-    let baseLogsLength = agentLogs.length;
 
     const poll = async () => {
       try {
@@ -466,7 +465,7 @@ const KYCPortal = () => {
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
-  }, [activePollingId, activePollingKey]);
+  }, [activePollingId, activePollingKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   
 
@@ -487,13 +486,6 @@ const KYCPortal = () => {
     });
   };
 
-  const handleFileRemove = (key, setter) => {
-    setter(null);
-    setPreviewUrls(prev => {
-      if (prev[key]) URL.revokeObjectURL(prev[key]);
-      return { ...prev, [key]: null };
-    });
-  };
 
   const initializePipeline = () => {
     setUploading(true);
