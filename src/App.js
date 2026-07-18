@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Upload, CheckCircle, XCircle, Play, Lock, Database, ShieldAlert, Cpu, Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, Scan
 } from 'lucide-react';
-import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
+import CoforgeLogoImage from './Coforge-log✗Coral-Blue.png';
 
 const API_URL = process.env.REACT_APP_API_URL || '';
 
@@ -52,7 +52,7 @@ const AgentConsole = ({ logs }) => {
       </div>
 
       {/* Terminal Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 no-scrollbar">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2 n✗scrollbar">
         {logs.length === 0 && (
           <div className="text-gray-600 italic flex items-center">
             Awaiting pipeline initialization...
@@ -145,7 +145,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
   return (
     <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden shrink-0">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#001f3f] to-[#003a6b] px-4 py-3 flex items-center justify-between">
+      <div className="bg-gradient-t✗r from-[#001f3f] t✗[#003a6b] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <User className="w-4 h-4 text-white/80" />
           <span className="text-white font-semibold text-xs tracking-wide">Extracted Identity Data</span>
@@ -184,7 +184,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
                 className="text-xs text-gray-800 font-semibold font-mono bg-white border border-blue-300 rounded px-2 py-0.5 w-1/2 focus:outline-none focus:border-[#F15840]"
               />
             ) : (
-              <span className="text-xs text-gray-800 font-semibold font-mono">{value}</span>
+              <span className="text-xs text-gray-800 font-semibold font-mon✓>{value}</span>
             )}
           </div>
         ))}
@@ -249,7 +249,7 @@ const UserManagementDashboard = () => {
 
       {/* Table */}
       <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/60 shadow-xl shadow-blue-900/5 flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-aut✓>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/80 border-b border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -359,7 +359,7 @@ const KYCPortal = () => {
     if (uploadQueue.length > 0 && currentDocIndex < uploadQueue.length && !activePollingId) {
       const startNextDoc = async () => {
         const item = uploadQueue[currentDocIndex];
-        setSelectedDoc(item.key); // Auto-select the active tab
+        setSelectedDoc(item.key); // Aut✗select the active tab
         setAgentLogs(prev => [...prev, { text: `[System] Starting KYC process for ${item.label}...`, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
         
         let docIdToPoll = null;
@@ -407,15 +407,15 @@ const KYCPortal = () => {
       startNextDoc();
     } else if (uploadQueue.length > 0 && currentDocIndex >= uploadQueue.length) {
       setUploading(false);
-      const allDocs = Object.values(updatedStatus);
-      const allVerified = allDocs.every(d => d.verification_status === 'verified' || d.verification_status === 'VALID' || !d.verification_status);
-      
-      if (allVerified && allDocs.length > 0) {
-        setAgentLogs(prev => [...prev, { text: '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
-      } else if (allDocs.length > 0) {
-        setAgentLogs(prev => [...prev, { text: '[Orchestrator Agent] ✗ KYC REJECTED — One or more documents failed verification', time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
-      }
-      setAgentLogs(prev => [...prev, { text: '[System] ✓ All documents processed. Pipeline idle.', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+      setAgentLogs(prev => {
+        const hasRejection = prev.some(l => l.text.includes('KYC REJECTED'));
+        const newLogs = [...prev];
+        if (!hasRejection) {
+          newLogs.push({ text: '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed', time: new Date().toLocaleTimeString('en-US', { hour12: false }) });
+        }
+        newLogs.push({ text: '[System] ✓ All documents processed. Pipeline idle.', time: new Date().toLocaleTimeString('en-US', { hour12: false }) });
+        return newLogs;
+      });
       setUploadQueue([]);
       setCurrentDocIndex(-1);
     }
@@ -519,7 +519,7 @@ const KYCPortal = () => {
   };
 
   const handleDemoUpload = () => {
-    setPreviewUrls({ passport: '/demo-passport.png', license: '/demo-dl.png', idCard: '/demo-id.png' });
+    setPreviewUrls({ passport: '/dem✗passport.png', license: '/dem✗dl.png', idCard: '/dem✗id.png' });
     initializePipeline();
     setAgentLogs([{ text: '[System] Demo mode \u2014 Loading sample documents for sequential processing...', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
     setUploadQueue([
@@ -547,22 +547,22 @@ const KYCPortal = () => {
   // === RENDER: LOGIN ===
   if (!authenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-100 flex flex-col relative overflow-hidden font-sans">
+      <div className="min-h-screen bg-gradient-t✗br from-blue-50 via-slate-50 t✗indig✗100 flex flex-col relative overflow-hidden font-sans">
         {/* Subtle Coral/Blue Accent Blobs */}
         <div className="absolute top-[-15%] left-[-10%] w-[45%] h-[45%] bg-[#F15840] rounded-full blur-[180px] opacity-[0.08]"></div>
         <div className="absolute bottom-[-15%] right-[-10%] w-[50%] h-[50%] bg-[#003a6b] rounded-full blur-[200px] opacity-[0.08]"></div>
 
         <header className="p-6 relative z-10">
-          <img src={CoforgeLogoImage} alt="Coforge Logo" className="h-14 w-auto" />
+          <img src={CoforgeLogoImage} alt="Coforge Log✓ className="h-14 w-aut✓ />
         </header>
 
         <div className="flex-grow flex items-center justify-center px-4 relative z-10">
           <div className="bg-white/80 backdrop-blur-xl p-10 w-full max-w-md rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden">
             {/* Top Gradient Bar */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#003a6b] via-[#F15840] to-[#003a6b]"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-t✗r from-[#003a6b] via-[#F15840] t✗[#003a6b]"></div>
 
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#FFF0ED] to-[#FFE0D9] border-2 border-[#F15840]/20 flex items-center justify-center shadow-lg shadow-[#F15840]/10">
+              <div className="w-16 h-16 rounded-full bg-gradient-t✗br from-[#FFF0ED] t✗[#FFE0D9] border-2 border-[#F15840]/20 flex items-center justify-center shadow-lg shadow-[#F15840]/10">
                 <Lock className="w-7 h-7 text-[#F15840]" />
               </div>
             </div>
@@ -592,7 +592,7 @@ const KYCPortal = () => {
               />
               <button
                 onClick={handleLogin}
-                className="w-full bg-gradient-to-r from-[#F15840] to-[#ff7b5e] hover:from-[#d44a35] hover:to-[#e5684e] text-white font-semibold px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
+                className="w-full bg-gradient-t✗r from-[#F15840] t✗[#ff7b5e] hover:from-[#d44a35] hover:t✗[#e5684e] text-white font-semibold px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
               >
                 Login
               </button>
@@ -623,9 +623,9 @@ const KYCPortal = () => {
 
   // === RENDER: DASHBOARD ===
   const documents = [
-    { key: 'passport', label: 'Passport', icon: '\uD83D\uDEC2', file: passportFile, setter: setPassportFile, gradient: 'from-blue-500 to-indigo-600' },
-    { key: 'license', label: 'License', icon: '\uD83D\uDE97', file: licenseFile, setter: setLicenseFile, gradient: 'from-emerald-500 to-teal-600' },
-    { key: 'idCard', label: 'ID Card', icon: '\uD83E\uDEAA', file: idCardFile, setter: setIdCardFile, gradient: 'from-purple-500 to-violet-600' },
+    { key: 'passport', label: 'Passport', icon: '\uD83D\uDEC2', file: passportFile, setter: setPassportFile, gradient: 'from-blue-500 t✗indig✗600' },
+    { key: 'license', label: 'License', icon: '\uD83D\uDE97', file: licenseFile, setter: setLicenseFile, gradient: 'from-emerald-500 t✗teal-600' },
+    { key: 'idCard', label: 'ID Card', icon: '\uD83E\uDEAA', file: idCardFile, setter: setIdCardFile, gradient: 'from-purple-500 t✗violet-600' },
   ];
   const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
 
@@ -645,12 +645,12 @@ const KYCPortal = () => {
   const selDocProgress = agentProgressMap[selectedDoc];
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 font-sans overflow-hidden flex flex-col text-gray-700">
+    <div className="h-screen w-screen bg-gradient-t✗br from-slate-50 via-blue-50/30 t✗indig✗50/50 font-sans overflow-hidden flex flex-col text-gray-700">
 
       {/* Navbar */}
       <nav className="h-14 bg-white/80 backdrop-blur-lg border-b border-gray-200/70 flex items-center justify-between px-5 shrink-0 relative z-50 shadow-sm">
         <div className="flex items-center space-x-3">
-          <img src={CoforgeLogoImage} alt="Coforge" className="h-8 w-auto" />
+          <img src={CoforgeLogoImage} alt="Coforge" className="h-8 w-aut✓ />
           <div className="h-5 w-px bg-gray-200"></div>
           <span className="text-[#001f3f] font-bold tracking-wide text-xs">AGENTIC KYC PIPELINE</span>
         </div>
@@ -663,10 +663,10 @@ const KYCPortal = () => {
           </button>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={handleUpload} disabled={uploading || selectedCount === 0} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${uploading || selectedCount === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] text-white shadow-sm'}`}>
+          <button onClick={handleUpload} disabled={uploading || selectedCount === 0} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${uploading || selectedCount === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-gradient-t✗r from-[#001f3f] t✗[#003a6b] text-white shadow-sm'}`}>
             <Upload className="w-3 h-3" /> <span>Upload & Verify{selectedCount > 0 ? ` (${selectedCount})` : ''}</span>
           </button>
-          <button onClick={handleDemoUpload} disabled={uploading} className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg text-[11px] font-bold transition-all disabled:opacity-50 shadow-sm">
+          <button onClick={handleDemoUpload} disabled={uploading} className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-t✗r from-purple-600 t✗indig✗600 hover:from-purple-700 hover:t✗indig✗700 text-white rounded-lg text-[11px] font-bold transition-all disabled:opacity-50 shadow-sm">
             <Play className="w-3 h-3" /> <span>Run Demo</span>
           </button>
         </div>
@@ -716,7 +716,7 @@ const KYCPortal = () => {
                 <div key={doc.key} onClick={() => setSelectedDoc(doc.key)} className={`rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${isSel ? 'ring-2 ring-[#F15840]/40 border-[#F15840]' : isDocOk ? 'border-emerald-400' : isDocBad ? 'border-red-400' : hasFile ? 'border-blue-200' : 'border-dashed border-gray-200'} bg-white hover:shadow-md`}>
                   {hasFile ? (
                     <div>
-                      <div className={`bg-gradient-to-r ${doc.gradient} px-2 py-1 flex items-center justify-between`}>
+                      <div className={`bg-gradient-t✗r ${doc.gradient} px-2 py-1 flex items-center justify-between`}>
                         <div className="flex items-center space-x-1">
                           <span className="text-[10px]">{doc.icon}</span>
                           <span className="text-white font-semibold text-[10px]">{doc.label}</span>
@@ -742,7 +742,7 @@ const KYCPortal = () => {
           </div>
 
           {/* Extracted Data for Selected Document */}
-          <div className="flex-1 min-h-0 bg-white/70 backdrop-blur-md rounded-xl border border-gray-200/80 shadow-sm overflow-auto">
+          <div className="flex-1 min-h-0 bg-white/70 backdrop-blur-md rounded-xl border border-gray-200/80 shadow-sm overflow-aut✓>
             {selDocData ? (
               <ExtractedDataCard data={selDocData} docType={selDocType} documentId={activePollingKey === selectedDoc ? activePollingId : null} onRevalidate={() => {}} agentProgress={selDocProgress || initialAgentProgress} />
             ) : (
