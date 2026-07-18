@@ -145,7 +145,7 @@ const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgr
   return (
     <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden shrink-0">
       {/* Header */}
-      <div className="bg-gradient-t✗r from-[#001f3f] t✗[#003a6b] px-4 py-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-[#001f3f] to-[#003a6b] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <User className="w-4 h-4 text-white/80" />
           <span className="text-white font-semibold text-xs tracking-wide">Extracted Identity Data</span>
@@ -559,10 +559,10 @@ const KYCPortal = () => {
         <div className="flex-grow flex items-center justify-center px-4 relative z-10">
           <div className="bg-white/80 backdrop-blur-xl p-10 w-full max-w-md rounded-3xl shadow-2xl border border-white/50 relative overflow-hidden">
             {/* Top Gradient Bar */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-t✗r from-[#003a6b] via-[#F15840] t✗[#003a6b]"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#003a6b] via-[#F15840] to-[#003a6b]"></div>
 
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-t✗br from-[#FFF0ED] t✗[#FFE0D9] border-2 border-[#F15840]/20 flex items-center justify-center shadow-lg shadow-[#F15840]/10">
+              <div className="w-16 h-16 rounded-full bg-gradient-t✗br from-[#FFF0ED] to-[#FFE0D9] border-2 border-[#F15840]/20 flex items-center justify-center shadow-lg shadow-[#F15840]/10">
                 <Lock className="w-7 h-7 text-[#F15840]" />
               </div>
             </div>
@@ -592,7 +592,7 @@ const KYCPortal = () => {
               />
               <button
                 onClick={handleLogin}
-                className="w-full bg-gradient-t✗r from-[#F15840] t✗[#ff7b5e] hover:from-[#d44a35] hover:t✗[#e5684e] text-white font-semibold px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
+                className="w-full bg-gradient-to-r from-[#F15840] to-[#ff7b5e] hover:from-[#d44a35] hover:to-[#e5684e] text-white font-semibold px-4 py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 text-sm"
               >
                 Login
               </button>
@@ -663,10 +663,10 @@ const KYCPortal = () => {
           </button>
         </div>
         <div className="flex items-center space-x-2">
-          <button onClick={handleUpload} disabled={uploading || selectedCount === 0} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${uploading || selectedCount === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-gradient-t✗r from-[#001f3f] t✗[#003a6b] text-white shadow-sm'}`}>
+          <button onClick={handleUpload} disabled={uploading || selectedCount === 0} className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${uploading || selectedCount === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-gradient-to-r from-[#001f3f] to-[#003a6b] text-white shadow-sm'}`}>
             <Upload className="w-3 h-3" /> <span>Upload & Verify{selectedCount > 0 ? ` (${selectedCount})` : ''}</span>
           </button>
-          <button onClick={handleDemoUpload} disabled={uploading} className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-t✗r from-purple-600 t✗indig✗600 hover:from-purple-700 hover:t✗indig✗700 text-white rounded-lg text-[11px] font-bold transition-all disabled:opacity-50 shadow-sm">
+          <button onClick={handleDemoUpload} disabled={uploading} className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 t✗indig✗600 hover:from-purple-700 hover:t✗indig✗700 text-white rounded-lg text-[11px] font-bold transition-all disabled:opacity-50 shadow-sm">
             <Play className="w-3 h-3" /> <span>Run Demo</span>
           </button>
         </div>
@@ -716,7 +716,7 @@ const KYCPortal = () => {
                 <div key={doc.key} onClick={() => setSelectedDoc(doc.key)} className={`rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${isSel ? 'ring-2 ring-[#F15840]/40 border-[#F15840]' : isDocOk ? 'border-emerald-400' : isDocBad ? 'border-red-400' : hasFile ? 'border-blue-200' : 'border-dashed border-gray-200'} bg-white hover:shadow-md`}>
                   {hasFile ? (
                     <div>
-                      <div className={`bg-gradient-t✗r ${doc.gradient} px-2 py-1 flex items-center justify-between`}>
+                      <div className={`bg-gradient-to-r ${doc.gradient} px-2 py-1 flex items-center justify-between`}>
                         <div className="flex items-center space-x-1">
                           <span className="text-[10px]">{doc.icon}</span>
                           <span className="text-white font-semibold text-[10px]">{doc.label}</span>
