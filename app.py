@@ -824,7 +824,7 @@ def process_document_with_logs(file_path, document_id):
         add_log(document_id, '[Orchestrator Agent] ✓ Results saved to Redis')
 
         if verification_status == 'VALID':
-            add_log(document_id, '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed')
+            add_log(document_id, f'[Orchestrator Agent] ✓ Document processed successfully')
         else:
             add_log(document_id, f'[Orchestrator Agent] ✗ KYC REJECTED — {verification_message}')
 

@@ -407,6 +407,14 @@ const KYCPortal = () => {
       startNextDoc();
     } else if (uploadQueue.length > 0 && currentDocIndex >= uploadQueue.length) {
       setUploading(false);
+      const allDocs = Object.values(updatedStatus);
+      const allVerified = allDocs.every(d => d.verification_status === 'verified' || d.verification_status === 'VALID' || !d.verification_status);
+      
+      if (allVerified && allDocs.length > 0) {
+        setAgentLogs(prev => [...prev, { text: '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
+      } else if (allDocs.length > 0) {
+        setAgentLogs(prev => [...prev, { text: '[Orchestrator Agent] ✗ KYC REJECTED — One or more documents failed verification', time: new Date().toLocaleTimeString('en-US', { hour12: false }), error: true }]);
+      }
       setAgentLogs(prev => [...prev, { text: '[System] ✓ All documents processed. Pipeline idle.', time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
       setUploadQueue([]);
       setCurrentDocIndex(-1);
