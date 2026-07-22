@@ -26,7 +26,7 @@ const ConfidenceRing = ({ score, size = 44 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
-  const color = score > 90 ? '#34d399' : score > 70 ? '#fbbf24' : '#fb7185';
+  const color = score >= 90 ? '#34d399' : score >= 70 ? '#fbbf24' : '#fb7185';
 
   return (
     <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
@@ -75,8 +75,11 @@ const TONES = {
 
 const toneOf = (log) => {
   const text = log.text || '';
-  if (log.error || /✗|\bREJECTED\b|\bINVALID\b|\[Error\]/i.test(text)) return 'error';
-  if (/✓|\bAPPROVED\b|\bVALID\b/.test(text)) return 'ok';
+  if (log.error || /✗|\bREJECTED\b|\bINVALID\b|\[Error\]|\bfailed\b/i.test(text)) return 'error';
+  // Green is reserved for verdicts, not for routine progress. The backend marks
+  // almost every step with a ✓, so treating that as success turned the whole
+  // stream green and buried the decision that actually matters.
+  if (/\bAPPROVED\b|\bVALID\b|processed successfully/i.test(text)) return 'ok';
   if (/\[(Groq AI|AI Agent|Gemini AI)\]/.test(text)) return 'ai';
   if (/\[(System|Orchestrator)/.test(text)) return 'system';
   return 'info';
@@ -140,8 +143,10 @@ const AgentConsole = ({ logs }) => {
                   key={i}
                   className="flex items-stretch gap-2.5 rounded-md px-1.5 py-[5px] enter-slide hover:bg-white/[0.03] transition-colors"
                 >
+                  {/* Some backend lines carry no timestamp; leave the column
+                      blank rather than printing a placeholder clock. */}
                   <span className="w-[52px] shrink-0 select-none text-[10px] text-slate-600 tabular pt-px">
-                    {log.time || '--:--:--'}
+                    {log.time || ''}
                   </span>
                   <span className={`w-[2px] shrink-0 rounded-full ${tone.rail}`} aria-hidden="true" />
                   <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
@@ -747,7 +752,15 @@ const KYCPortal = () => {
     else activeAgent = 1;
   }
 
-  const displayProgress = Object.values(agentProgressMap)[0] || null;
+  // Track the document being processed right now. Reading the first entry of
+  // the map meant that while documents 2 and 3 were still running, the pipeline
+  // showed document 1's finished state — every stage "Complete" next to a
+  // banner reading "Verifying…".
+  const displayProgress =
+    agentProgressMap[activePollingKey] ||
+    agentProgressMap[selectedDoc] ||
+    Object.values(agentProgressMap)[0] ||
+    null;
 
   // ═══════════════════════════════════════════════
   //  RENDER: LOGIN PAGE
