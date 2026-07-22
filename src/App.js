@@ -752,15 +752,16 @@ const KYCPortal = () => {
     else activeAgent = 1;
   }
 
-  // Track the document being processed right now. Reading the first entry of
-  // the map meant that while documents 2 and 3 were still running, the pipeline
-  // showed document 1's finished state — every stage "Complete" next to a
-  // banner reading "Verifying…".
-  const displayProgress =
-    agentProgressMap[activePollingKey] ||
-    agentProgressMap[selectedDoc] ||
-    Object.values(agentProgressMap)[0] ||
-    null;
+  // While a document is being processed the pipeline shows that document and
+  // nothing else — deliberately with no fallback to another document's entry.
+  // Falling back meant that in the gap between starting document 2 and its
+  // first progress payload, the stages still displayed document 1's finished
+  // state: four green "Complete" ticks beside a banner reading "Verifying…".
+  // Reporting nothing yet (every stage on Standby) is the honest reading, and
+  // it lets the pipeline visibly reset per document.
+  const displayProgress = activePollingKey
+    ? agentProgressMap[activePollingKey] || null
+    : agentProgressMap[selectedDoc] || Object.values(agentProgressMap)[0] || null;
 
   // ═══════════════════════════════════════════════
   //  RENDER: LOGIN PAGE
