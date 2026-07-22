@@ -1,51 +1,268 @@
 @import "tailwindcss";
 
-/* Animations */
-@keyframes scan-laser {
-  0% { top: 0%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
+/* ==========================================================================
+   AGENTIC KYC — DESIGN SYSTEM
+   1. Tokens  ·  2. Motion policy  ·  3. Surfaces  ·  4. Components
+   5. Scrollbars  ·  6. Accessibility
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- 1. TOKENS */
+:root {
+  /* Brand */
+  --navy-900: #00152b;
+  --navy-800: #001f3f;
+  --navy-700: #002d5c;
+  --navy-600: #003a6b;
+  --coral-600: #d44a35;
+  --coral-500: #f15840;
+  --coral-400: #ff7b5e;
+
+  /* Semantic — deliberately only four states. */
+  --ok:    #10b981;
+  --warn:  #f59e0b;
+  --bad:   #ef4444;
+  --info:  #0ea5e9;
+  --ai:    #8b5cf6;
+
+  /* Ink */
+  --ink-900: #0b1220;
+  --ink-700: #334155;
+  --ink-500: #64748b;
+  --ink-400: #94a3b8;
+  --ink-300: #cbd5e1;
+
+  /* Lines & surfaces */
+  --line:        rgba(15, 23, 42, 0.08);
+  --line-strong: rgba(15, 23, 42, 0.14);
+  --surface:        #ffffff;
+  --surface-sunken: #f8fafc;
+
+  /* Terminal */
+  --term-bg:     #0a0e14;
+  --term-chrome: #10151d;
+  --term-line:   rgba(148, 163, 184, 0.12);
+
+  /* Elevation lives in tailwind.config (public/index.html) as shadow-xs /
+     shadow-soft / shadow-card / shadow-lift, so it stays in one place rather
+     than being duplicated here. Depth comes from stacking two low-opacity
+     shadows, never from one heavy one. */
+
+  /* Motion — one shared scale so no duration is ever arbitrary. */
+  --dur-1: 140ms;
+  --dur-2: 220ms;
+  --dur-3: 360ms;
+  --dur-4: 560ms;
+  --beat:  1.6s;              /* shared heartbeat for every live indicator */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-pop:    cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* ---------------------------------------------------------- 2. MOTION POLICY
+
+   A. ENTRANCE animation runs ONCE and settles (`both` fill mode). It is never
+      looped. A view that has finished loading must be visually still.
+
+   B. LOOPING animation is reserved for live telemetry and is mounted only
+      while the pipeline is genuinely running. At most four loops exist on
+      screen at once, each in a separate region with a distinct meaning:
+
+        .loop-flow    connector    — the pipeline is advancing
+        .loop-ring    stage node   — which stage is working right now
+        .loop-sweep   document     — which document is being read
+        .loop-beacon  console      — the log stream is live
+
+      They all derive their timing from --beat, so they pulse on a common
+      rhythm instead of drifting against each other.
+
+   C. No element carries two animations at once, and no looping animation is
+      ever nested inside another looping animation. Terminal states (approved /
+      rejected / complete) animate in once and then hold still — a finished
+      result must never keep pulsing as though it were still working.
+
+   D. Everything here is disabled under prefers-reduced-motion (section 6).
+   -------------------------------------------------------------------------- */
+
+/* --- Entrance (one-shot) --- */
+@keyframes enter-fade  { from { opacity: 0; }                                 to { opacity: 1; } }
+@keyframes enter-rise  { from { opacity: 0; transform: translateY(10px); }    to { opacity: 1; transform: none; } }
+@keyframes enter-slide { from { opacity: 0; transform: translateX(-8px); }    to { opacity: 1; transform: none; } }
+@keyframes enter-pop   { from { opacity: 0; transform: scale(0.84); }         to { opacity: 1; transform: none; } }
+
+/* --- Live telemetry (looping, state-gated) --- */
+@keyframes flow   { to { stroke-dashoffset: -16; } }
+@keyframes ring   {
+  0%   { box-shadow: 0 0 0 0    rgba(241, 88, 64, 0.32); }
+  100% { box-shadow: 0 0 0 10px rgba(241, 88, 64, 0);    }
+}
+@keyframes sweep  {
+  0%   { top: -2%;  opacity: 0; }
+  14%  {            opacity: 1; }
+  86%  {            opacity: 1; }
   100% { top: 100%; opacity: 0; }
 }
+@keyframes beacon {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0   rgba(16, 185, 129, 0.45); }
+  50%      { opacity: 0.5; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);    }
+}
+@keyframes spin   { to { transform: rotate(360deg); } }
 
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgba(241, 88, 64, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(241, 88, 64, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(241, 88, 64, 0); }
+/* --- Utility classes --- */
+.enter-fade  { animation: enter-fade  var(--dur-3) var(--ease-out) both; }
+.enter-rise  { animation: enter-rise  var(--dur-4) var(--ease-out) both; }
+.enter-slide { animation: enter-slide var(--dur-2) var(--ease-out) both; }
+.enter-pop   { animation: enter-pop   var(--dur-2) var(--ease-pop) both; }
+
+.loop-flow   { animation: flow   calc(var(--beat) / 2) linear infinite; }
+.loop-ring   { animation: ring   var(--beat) var(--ease-out) infinite; }
+.loop-sweep  { animation: sweep  calc(var(--beat) * 1.25) var(--ease-in-out) infinite; }
+.loop-beacon { animation: beacon var(--beat) var(--ease-in-out) infinite; }
+.loop-spin   { animation: spin   calc(var(--beat) * 1.5) linear infinite; }
+
+/* Staggered entrance. Children must already carry an .enter-* class. */
+.stagger > *:nth-child(1)  { animation-delay: 0ms;   }
+.stagger > *:nth-child(2)  { animation-delay: 40ms;  }
+.stagger > *:nth-child(3)  { animation-delay: 80ms;  }
+.stagger > *:nth-child(4)  { animation-delay: 120ms; }
+.stagger > *:nth-child(5)  { animation-delay: 160ms; }
+.stagger > *:nth-child(6)  { animation-delay: 200ms; }
+.stagger > *:nth-child(7)  { animation-delay: 240ms; }
+.stagger > *:nth-child(8)  { animation-delay: 280ms; }
+.stagger > *:nth-child(9)  { animation-delay: 320ms; }
+.stagger > *:nth-child(10) { animation-delay: 360ms; }
+.stagger > *:nth-child(11) { animation-delay: 400ms; }
+.stagger > *:nth-child(12) { animation-delay: 440ms; }
+/* Anything past the 12th appears immediately rather than waiting out a long
+   delay — a stagger that runs too long stops reading as one gesture. */
+.stagger > *:nth-child(n + 13) { animation-delay: 480ms; }
+
+/* -------------------------------------------------------------- 3. SURFACES */
+
+/* App canvas — a very quiet tint so white panels read as raised. */
+.app-canvas {
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(0, 58, 107, 0.05), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%,  rgba(241, 88, 64, 0.04), transparent 55%),
+    #f6f8fb;
 }
 
-@keyframes dash {
-  to {
-    stroke-dashoffset: -20;
+/* Login hero — static depth. No animated blobs: the composition is built from
+   fixed gradients and a fine grid, so the panel is completely still. */
+.hero-canvas {
+  background:
+    radial-gradient(900px 620px at 18% 12%, rgba(241, 88, 64, 0.20), transparent 62%),
+    radial-gradient(760px 560px at 88% 82%, rgba(79, 70, 229, 0.22), transparent 60%),
+    radial-gradient(620px 480px at 62% 42%, rgba(6, 182, 212, 0.12), transparent 58%),
+    linear-gradient(145deg, var(--navy-900) 0%, var(--navy-800) 45%, var(--navy-700) 100%);
+}
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(760px 620px at 50% 45%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(760px 620px at 50% 45%, #000 20%, transparent 78%);
+}
+
+/* ------------------------------------------------------------ 4. COMPONENTS */
+
+/* Uppercase micro-label — used for every section heading and field key. */
+.label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-400);
+}
+
+/* Numeric / identifier text. Tabular figures stop IDs from jittering as they
+   update in place. */
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* Small status chip */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip-ok      { background: rgba(16, 185, 129, 0.10); color: #047857; border-color: rgba(16, 185, 129, 0.28); }
+.chip-bad     { background: rgba(239, 68, 68, 0.10);  color: #b91c1c; border-color: rgba(239, 68, 68, 0.28);  }
+.chip-warn    { background: rgba(245, 158, 11, 0.12); color: #b45309; border-color: rgba(245, 158, 11, 0.30); }
+.chip-neutral { background: rgba(100, 116, 139, 0.09); color: var(--ink-500); border-color: var(--line-strong); }
+
+/* Console tag chip — monospace, sits inside the dark terminal. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+
+/* Focus — one consistent ring everywhere, keyboard users included. */
+.focusable:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--coral-500);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Confidence ring */
+.confidence-ring { transform: rotate(-90deg); }
+.confidence-ring circle { transition: stroke-dashoffset var(--dur-4) var(--ease-out); }
+
+/* ------------------------------------------------------------ 5. SCROLLBARS */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 58, 107, 0.16);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 58, 107, 0.30); }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(0,58,107,.16) transparent; }
+
+.dark-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+.dark-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.24); }
+.dark-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.12) transparent; }
+
+/* --------------------------------------------------------- 6. ACCESSIBILITY */
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Honour the OS "reduce motion" setting: every animation above collapses to a
+   single instant frame, so the UI still reaches its final state but nothing
+   moves. Motion is decoration here, never the only carrier of meaning — every
+   animated state also has a static colour, icon and text label. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateX(-4px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.animate-scan-laser {
-  animation: scan-laser 2s ease-in-out infinite;
-}
-
-.animate-pulse-ring {
-  animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.animate-dash {
-  animation: dash 0.8s linear infinite;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-/* Custom scrollbar hiding */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
