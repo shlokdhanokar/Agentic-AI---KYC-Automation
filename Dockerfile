@@ -23,6 +23,13 @@ COPY DATABASE_DOCUMENTS.xlsx .
 COPY OFAC_SDN_LIST.csv .
 COPY ["Philip DL.PNG", "."]
 
+# Demo documents served by /upload-demo. Without these three, the endpoint's
+# missing-file fallback routes every document type to "Philip DL.PNG", so the
+# passport and ID card both process as the same driving license.
+COPY demo-passport.png .
+COPY demo-dl.png .
+COPY demo-id.png .
+
 # Create uploads directory (used by the Flask app)
 RUN mkdir -p uploads
 
