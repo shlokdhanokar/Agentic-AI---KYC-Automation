@@ -872,7 +872,10 @@ const KYCPortal = () => {
     if (uploadQueue.length > 0 && currentDocIndex < uploadQueue.length && !activePollingId) {
       const startNextDoc = async () => {
         const item = uploadQueue[currentDocIndex];
-        setSelectedDoc(item.key); // Auto-select the active tab
+        // Note: the panel is NOT switched to this document here. It follows the
+        // document that just *finished* (see the poll completion handler), so a
+        // completed document's extracted data stays on screen instead of being
+        // cleared the instant the next document starts processing.
         setAgentLogs(prev => [...prev, { text: `[System] Starting KYC process for ${item.label}...`, time: now() }]);
 
         let docIdToPoll = null;
@@ -971,6 +974,11 @@ const KYCPortal = () => {
             setExtractedDataMap(prev => ({ ...prev, [activePollingKey]: data.document_data }));
             setExtractedDocTypeMap(prev => ({ ...prev, [activePollingKey]: data.document_type || 'unknown' }));
           }
+
+          // Surface this document's freshly extracted data in the panel and
+          // keep it there until the next document completes — so the three
+          // documents' results are shown one by one as the pipeline proceeds.
+          setSelectedDoc(activePollingKey);
 
           clearInterval(pollingRef.current);
           pollingRef.current = null;
