@@ -4,7 +4,7 @@ import {
   Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, ScanLine,
   FileText, LogOut, Hash, Calendar, Globe, Plane, Car, CreditCard, Terminal,
   Sparkles, Fingerprint, ChevronRight, Clock, Save, Loader2, AlertCircle,
-  Network, Cloud, Zap, Server, ArrowRight, Check, X
+  Network, Cloud, Zap, Server, ArrowRight, Check, X, Maximize2
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -243,6 +243,98 @@ const DocVerdictOverlay = ({ ok }) => (
     </span>
   </div>
 );
+
+// ═══════════════════════════════════════════════════
+//  DOCUMENT PREVIEW MODAL — click a document to enlarge it
+//  Shows the full image alongside that specific document's extracted fields,
+//  so each of the three documents is inspectable on demand — not just whichever
+//  one the pipeline happened to finish on.
+// ═══════════════════════════════════════════════════
+const DocumentPreviewModal = ({ label, icon: Icon, imageUrl, data, docType, verdict, onClose }) => {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const fields = data
+    ? Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
+    : [];
+  const confidence = data?.confidence_score;
+  const typeLabel = docType === 'driving_license' ? 'Driving License'
+    : docType === 'passport' ? 'Passport'
+      : docType === 'identity_card' ? 'Identity Card' : label;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-label={`${label} preview`}>
+      <div className="absolute inset-0 bg-slate-900/55 backdrop-blur-sm enter-fade" onClick={onClose} />
+
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-lift overflow-hidden enter-pop flex flex-col max-h-[88vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+              <Icon className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-800 truncate">{label}</p>
+              <p className="label">{typeLabel}</p>
+            </div>
+            {verdict === 'completed' && <span className="chip chip-ok ml-1"><Check className="w-3 h-3" /> Verified</span>}
+            {verdict === 'invalid' && <span className="chip chip-bad ml-1"><X className="w-3 h-3" /> Flagged</span>}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 flex items-center justify-center transition-colors shrink-0"
+            aria-label="Close preview"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body — image + fields */}
+        <div className="grid md:grid-cols-2 min-h-0 overflow-auto">
+          <div className="bg-slate-100 flex items-center justify-center p-5 md:border-r border-slate-200">
+            {imageUrl ? (
+              <img src={imageUrl} alt={`${label} document`} className="max-h-[52vh] w-auto max-w-full object-contain rounded-lg shadow-md" />
+            ) : (
+              <div className="text-slate-400 flex flex-col items-center py-10">
+                <FileText className="w-8 h-8" />
+                <span className="text-xs mt-2">No image preview</span>
+              </div>
+            )}
+          </div>
+
+          <div className="p-5 overflow-auto custom-scrollbar">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h4 className="label">Extracted fields</h4>
+              {confidence && <span className="chip chip-neutral tabular">{confidence}% confidence</span>}
+            </div>
+
+            {fields.length ? (
+              <div className="space-y-0.5">
+                {fields.map(([k, v]) => (
+                  <div key={k} className="flex items-baseline justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
+                    <span className="label shrink-0">{k.replace(/_/g, ' ')}</span>
+                    <span className="text-[12px] font-semibold font-mono text-slate-800 text-right break-words">{v}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center py-10">
+                <div className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
+                  <FileText className="w-4 h-4 text-slate-300" />
+                </div>
+                <p className="text-xs font-semibold text-slate-500">No data extracted yet</p>
+                <p className="text-[11px] text-slate-400 mt-1">Run the demo to extract this document&apos;s fields</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ═══════════════════════════════════════════════════
 //  EXTRACTED DATA CARD
@@ -806,6 +898,7 @@ const KYCPortal = () => {
   // action on a rejected document still has an id to post against.
   const [documentIdMap, setDocumentIdMap] = useState({});
   const [selectedDoc, setSelectedDoc] = useState('passport');
+  const [previewDoc, setPreviewDoc] = useState(null); // doc key shown in the enlarged preview modal
 
 
   const VALID_USERNAME = "shlok";
@@ -1329,12 +1422,18 @@ const KYCPortal = () => {
                   return (
                     <div
                       key={doc.key}
-                      onClick={() => setSelectedDoc(doc.key)}
+                      onClick={() => { setSelectedDoc(doc.key); if (hasFile) setPreviewDoc(doc.key); }}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setSelectedDoc(doc.key)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedDoc(doc.key);
+                          if (hasFile) setPreviewDoc(doc.key);
+                        }
+                      }}
                       aria-pressed={isSel}
-                      className={`focusable rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border bg-white
+                      className={`group focusable rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border bg-white
                         ${isSel ? 'border-[#F15840] ring-2 ring-[#F15840]/15 shadow-card'
                           : isDocOk ? 'border-emerald-300 shadow-xs'
                             : isDocBad ? 'border-rose-300 shadow-xs'
@@ -1367,6 +1466,12 @@ const KYCPortal = () => {
                             {/* Verified / flagged stamp — plays once when this
                                 document settles, and stays as the marker. */}
                             {!isScanning && (isDocOk || isDocBad) && <DocVerdictOverlay ok={isDocOk} />}
+                            {/* Hover affordance: signals the card enlarges on click. */}
+                            {!isScanning && (
+                              <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-slate-900/45 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                <Maximize2 className="w-3 h-3" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       ) : (
@@ -1460,6 +1565,23 @@ const KYCPortal = () => {
           <UserManagementDashboard />
         </div>
       )}
+
+      {/* Enlarged document preview — opened by clicking any document card. */}
+      {previewDoc && (() => {
+        const meta = documents.find(d => d.key === previewDoc);
+        if (!meta) return null;
+        return (
+          <DocumentPreviewModal
+            label={meta.label}
+            icon={meta.icon}
+            imageUrl={previewUrls[previewDoc]}
+            data={extractedDataMap[previewDoc]}
+            docType={extractedDocTypeMap[previewDoc]}
+            verdict={agentProgressMap[previewDoc]?.kycComplete?.status}
+            onClose={() => setPreviewDoc(null)}
+          />
+        );
+      })()}
     </div>
   );
 };
