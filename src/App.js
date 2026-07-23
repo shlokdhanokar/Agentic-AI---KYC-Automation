@@ -4,7 +4,7 @@ import {
   Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, ScanLine,
   FileText, LogOut, Hash, Calendar, Globe, Plane, Car, CreditCard, Terminal,
   Sparkles, Fingerprint, ChevronRight, Clock, Save, Loader2, AlertCircle,
-  Network, Cloud, Zap, Server, ArrowRight
+  Network, Cloud, Zap, Server, ArrowRight, Check, X
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -219,6 +219,30 @@ const PipelineNode = ({ icon: Icon, title, index, status, active }) => {
     </div>
   );
 };
+
+// ═══════════════════════════════════════════════════
+//  DOCUMENT VERDICT OVERLAY — one-shot verified / flagged stamp
+//  Mounts the instant a single document reaches a terminal state, so its
+//  entrance plays exactly once. Rendered per card, and since the pipeline
+//  finishes documents sequentially, the three cards light up one at a time.
+// ═══════════════════════════════════════════════════
+const DocVerdictOverlay = ({ ok }) => (
+  <div
+    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none verdict-wash ${ok ? 'bg-emerald-500/12' : 'bg-rose-500/12'}`}
+    role="status"
+    aria-label={ok ? 'Document verified' : 'Document flagged'}
+  >
+    <div className="relative w-7 h-7">
+      <span className={`absolute -inset-1 rounded-full border-2 verdict-ring ${ok ? 'border-emerald-400' : 'border-rose-400'}`} aria-hidden="true" />
+      <div className={`absolute inset-0 rounded-full flex items-center justify-center shadow-md verdict-pop ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+        {ok ? <Check className="w-4 h-4 text-white" strokeWidth={3} /> : <X className="w-4 h-4 text-white" strokeWidth={3} />}
+      </div>
+    </div>
+    <span className={`text-[8px] font-extrabold tracking-[0.14em] uppercase verdict-label ${ok ? 'text-emerald-700' : 'text-rose-700'}`}>
+      {ok ? 'Verified' : 'Flagged'}
+    </span>
+  </div>
+);
 
 // ═══════════════════════════════════════════════════
 //  EXTRACTED DATA CARD
@@ -1340,6 +1364,9 @@ const KYCPortal = () => {
                             {isScanning && (
                               <div className="absolute inset-x-0 h-[2px] bg-[#F15840] shadow-[0_0_12px_#F15840] loop-sweep pointer-events-none" />
                             )}
+                            {/* Verified / flagged stamp — plays once when this
+                                document settles, and stays as the marker. */}
+                            {!isScanning && (isDocOk || isDocBad) && <DocVerdictOverlay ok={isDocOk} />}
                           </div>
                         </div>
                       ) : (
