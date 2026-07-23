@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Upload, CheckCircle2, XCircle, Play, Lock, Database, ShieldAlert, ShieldCheck, Cpu,
-  Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, ScanLine,
-  FileText, LogOut, Hash, Calendar, Globe, Plane, Car, CreditCard, Terminal,
-  Sparkles, Fingerprint, ChevronRight, Clock, Save, Loader2, AlertCircle,
+  Activity, User, Users, Search, RefreshCw, LayoutDashboard, Brain, ScanLine,
+  FileText, LogOut, Plane, Car, CreditCard, Terminal,
+  Sparkles, Fingerprint, ChevronRight, Clock, Loader2, AlertCircle,
   Network, Cloud, Zap, Server, ArrowRight, Check, X, Maximize2
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
@@ -18,32 +18,6 @@ const reducedMotion = () =>
   typeof window !== 'undefined' &&
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-// ═══════════════════════════════════════════════════
-//  CONFIDENCE RING — circular score, animates once on arrival
-// ═══════════════════════════════════════════════════
-const ConfidenceRing = ({ score, size = 44 }) => {
-  const strokeWidth = 3;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 90 ? '#34d399' : score >= 70 ? '#fbbf24' : '#fb7185';
-
-  return (
-    <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-      <svg className="confidence-ring" width={size} height={size} aria-hidden="true">
-        {/* Track sits on the navy header, so it is tinted light rather than dark. */}
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth={strokeWidth} />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-        />
-      </svg>
-      <span className="absolute text-[9px] font-bold tabular" style={{ color }}>{score}</span>
-      <span className="sr-only">Extraction confidence {score} percent</span>
-    </div>
-  );
-};
 
 // ═══════════════════════════════════════════════════
 //  AGENT CONSOLE — structured log stream
@@ -293,130 +267,6 @@ const DocumentPreviewModal = ({ label, icon: Icon, imageUrl, verdict, onClose })
               <span className="text-xs mt-2">No image preview</span>
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ═══════════════════════════════════════════════════
-//  EXTRACTED DATA CARD
-// ═══════════════════════════════════════════════════
-const ExtractedDataCard = ({ data, docType, documentId, onRevalidate, agentProgress }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedData, setEditedData] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Filter out confidence and reasoning from display
-  const displayData = useMemo(() => {
-    return data ? Object.fromEntries(
-      Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
-    ) : {};
-  }, [data]);
-
-  const entries = Object.entries(displayData);
-
-  useEffect(() => {
-    setEditedData(displayData);
-  }, [data, displayData]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/update-data/${documentId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: editedData })
-      });
-      const result = await res.json();
-      if (result.success) {
-        setIsEditing(false);
-        if (onRevalidate) onRevalidate();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setIsSaving(false);
-  };
-
-  if (!data || entries.length === 0) return null;
-
-  const docLabel = docType === 'driving_license' ? 'Driving License' : docType === 'passport' ? 'Passport' : 'ID Card';
-  const confidence = data.confidence_score;
-  const DocIcon = docType === 'passport' ? Plane : docType === 'driving_license' ? Car : CreditCard;
-  const canEdit = agentProgress?.kycComplete?.status === 'invalid' && documentId;
-
-  const getFieldIcon = (key) => {
-    const k = key.toLowerCase();
-    if (k.includes('date') || k.includes('birth') || k.includes('expiry') || k.includes('issue')) return Calendar;
-    if (k.includes('number') || k.includes('no') || k.includes('dln') || k.includes('id')) return Hash;
-    if (k.includes('name') || k.includes('surname') || k.includes('given')) return User;
-    if (k.includes('national') || k.includes('country') || k.includes('place')) return Globe;
-    return FileText;
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-white rounded-2xl overflow-hidden enter-fade">
-
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#001f3f] via-[#002d5c] to-[#003a6b] px-4 py-3 flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
-            <DocIcon className="w-4 h-4 text-white/80" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-white font-bold text-xs tracking-wide truncate">Extracted Data</p>
-            <p className="text-[9px] text-white/50 font-semibold uppercase tracking-[0.12em] mt-0.5">
-              {docLabel} · {entries.length} fields
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2.5 shrink-0">
-          {confidence && <ConfidenceRing score={confidence} size={40} />}
-          {canEdit && (
-            <button
-              onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-              disabled={isSaving}
-              className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#F15840] text-white uppercase tracking-wide hover:bg-[#d44a35] disabled:opacity-60 transition-colors flex items-center gap-1.5"
-            >
-              {isEditing
-                ? (isSaving ? <><Loader2 className="w-3 h-3 loop-spin" /> Saving</> : <><Save className="w-3 h-3" /> Save &amp; Re-verify</>)
-                : <><Edit2 className="w-3 h-3" /> Correct</>}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Fields */}
-      <div className="flex-1 overflow-auto p-3 custom-scrollbar bg-slate-50/40">
-        <div className="grid grid-cols-2 gap-1.5 stagger">
-          {entries.map(([key, value]) => {
-            const FieldIcon = getFieldIcon(key);
-            return (
-              <div
-                key={key}
-                className="flex items-start gap-2.5 py-2 px-2.5 rounded-xl bg-white border border-slate-100 enter-fade hover:border-slate-200 hover:shadow-xs transition-all group"
-              >
-                <FieldIcon className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-1 group-hover:text-[#F15840]/70 transition-colors" />
-                <div className="flex-1 min-w-0">
-                  <span className="label block">{key.replace(/_/g, ' ')}</span>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editedData[key] || ''}
-                      onChange={(e) => setEditedData({ ...editedData, [key]: e.target.value })}
-                      className="text-[11px] text-slate-800 font-semibold font-mono bg-white border border-slate-300 rounded-md px-1.5 py-1 w-full focus:outline-none focus:border-[#F15840] focus:ring-2 focus:ring-[#F15840]/20 mt-1"
-                      aria-label={key.replace(/_/g, ' ')}
-                    />
-                  ) : (
-                    <span className="text-[11px] text-slate-800 font-semibold font-mono block truncate mt-0.5" title={String(value)}>
-                      {value}
-                    </span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
@@ -827,12 +677,6 @@ const ArchitectureView = ({ agentProgressMap }) => {
 // ═══════════════════════════════════════════════════
 //  MAIN APPLICATION
 // ═══════════════════════════════════════════════════
-const initialAgentProgress = {
-  agent1: { name: "OCR Processing", progress: 0, status: "idle" },
-  agent2: { name: "Data Validation", progress: 0, status: "idle" },
-  agent3: { name: "OFAC Screening", progress: 0, status: "idle" },
-  kycComplete: { name: "KYC Decision", progress: 0, status: "idle" }
-};
 
 const KYCPortal = () => {
   const [authenticated, setAuthenticated] = useState(false);
@@ -856,10 +700,6 @@ const KYCPortal = () => {
 
   const [agentProgressMap, setAgentProgressMap] = useState({});
   const [extractedDataMap, setExtractedDataMap] = useState({});
-  const [extractedDocTypeMap, setExtractedDocTypeMap] = useState({});
-  // Retains each document's backend id after polling ends, so the "Correct"
-  // action on a rejected document still has an id to post against.
-  const [documentIdMap, setDocumentIdMap] = useState({});
   const [selectedDoc, setSelectedDoc] = useState('passport');
   const [previewDoc, setPreviewDoc] = useState(null); // doc key shown in the enlarged preview modal
 
@@ -913,7 +753,6 @@ const KYCPortal = () => {
         }
 
         if (docIdToPoll) {
-          setDocumentIdMap(prev => ({ ...prev, [item.key]: docIdToPoll }));
           setActivePollingId(docIdToPoll);
           setActivePollingKey(item.key);
         } else {
@@ -972,7 +811,6 @@ const KYCPortal = () => {
           setAgentProgressMap(prev => ({ ...prev, [activePollingKey]: finalProgress }));
           if (data.document_data) {
             setExtractedDataMap(prev => ({ ...prev, [activePollingKey]: data.document_data }));
-            setExtractedDocTypeMap(prev => ({ ...prev, [activePollingKey]: data.document_type || 'unknown' }));
           }
 
           // Surface this document's freshly extracted data in the panel and
@@ -1023,8 +861,6 @@ const KYCPortal = () => {
     setUploading(true);
     setAgentProgressMap({});
     setExtractedDataMap({});
-    setExtractedDocTypeMap({});
-    setDocumentIdMap({});
   };
 
   const handleUpload = () => {
@@ -1233,10 +1069,6 @@ const KYCPortal = () => {
   const allDocsApproved = allDocsProcessed && processedDocKeys.every(k => agentProgressMap[k]?.kycComplete?.status === 'completed');
   const overallStatus = !allDocsProcessed ? (uploading ? 'processing' : 'idle') : (allDocsApproved ? 'approved' : 'rejected');
 
-  const selDocData = extractedDataMap[selectedDoc];
-  const selDocType = extractedDocTypeMap[selectedDoc];
-  const selDocProgress = agentProgressMap[selectedDoc];
-
   const bannerTheme = {
     approved:   { shell: 'bg-emerald-50/80 border-emerald-200', icon: 'text-emerald-500', text: 'text-emerald-700', label: 'KYC Approved' },
     rejected:   { shell: 'bg-rose-50/80 border-rose-200',       icon: 'text-rose-500',    text: 'text-rose-700',    label: 'KYC Rejected' },
@@ -1373,116 +1205,121 @@ const KYCPortal = () => {
               <AgentConsole logs={agentLogs} />
             </div>
 
-            {/* RIGHT: Documents + extracted data */}
-            {/* Panels stay side by side at every width: the shell is a fixed
-                h-screen/overflow-hidden dashboard, so stacking would clip. */}
-            <div className="col-span-6 flex flex-col gap-2.5 min-h-0">
+            {/* RIGHT: three document lanes side by side. Each lane owns one
+                document — its image and its extracted fields — and fills in
+                independently as that document completes, so all three results
+                are visible together at the end. */}
+            <div className="col-span-6 flex gap-2 min-h-0">
+              {documents.map(doc => {
+                const DocIcon = doc.icon;
+                const preview = previewUrls[doc.key];
+                const hasFile = doc.file || preview;
+                const status = agentProgressMap[doc.key]?.kycComplete?.status;
+                const isDocOk = status === 'completed';
+                const isDocBad = status === 'invalid';
+                const isScanning = uploading && activePollingKey === doc.key;
+                const data = extractedDataMap[doc.key];
+                const fields = data
+                  ? Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
+                  : [];
+                const confidence = data?.confidence_score;
+                const openPreview = () => { setSelectedDoc(doc.key); if (hasFile) setPreviewDoc(doc.key); };
 
-              {/* Document slots */}
-              <div className="grid grid-cols-3 gap-2 shrink-0">
-                {documents.map(doc => {
-                  const DocIcon = doc.icon;
-                  const preview = previewUrls[doc.key];
-                  const hasFile = doc.file || preview;
-                  const dp = agentProgressMap[doc.key];
-                  const isDocOk = dp?.kycComplete?.status === 'completed';
-                  const isDocBad = dp?.kycComplete?.status === 'invalid';
-                  const isSel = selectedDoc === doc.key;
-                  const isScanning = uploading && activePollingKey === doc.key;
-
-                  return (
-                    <div
-                      key={doc.key}
-                      onClick={() => { setSelectedDoc(doc.key); if (hasFile) setPreviewDoc(doc.key); }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          setSelectedDoc(doc.key);
-                          if (hasFile) setPreviewDoc(doc.key);
-                        }
-                      }}
-                      aria-pressed={isSel}
-                      className={`group focusable rounded-xl overflow-hidden cursor-pointer transition-all duration-200 border bg-white
-                        ${isSel ? 'border-[#F15840] ring-2 ring-[#F15840]/15 shadow-card'
-                          : isDocOk ? 'border-emerald-300 shadow-xs'
-                            : isDocBad ? 'border-rose-300 shadow-xs'
-                              : hasFile ? 'border-slate-200 hover:border-slate-300'
-                                : 'border-dashed border-slate-200 hover:border-slate-300'}`}
-                    >
-                      {hasFile ? (
-                        <div>
-                          <div className={`bg-gradient-to-r ${doc.accent} px-2.5 h-7 flex items-center justify-between`}>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <DocIcon className="w-3 h-3 text-white/90 shrink-0" />
-                              <span className="text-white font-bold text-[10px] tracking-wide truncate">{doc.label}</span>
-                            </div>
-                            {isDocOk && <CheckCircle2 className="w-3.5 h-3.5 text-white enter-pop shrink-0" />}
-                            {isDocBad && <XCircle className="w-3.5 h-3.5 text-white enter-pop shrink-0" />}
-                          </div>
-                          <div className="relative h-[72px] bg-slate-50 flex items-center justify-center overflow-hidden">
-                            {preview ? (
-                              <img src={preview} alt={`${doc.label} preview`} className="h-full w-full object-contain" />
-                            ) : (
-                              // Non-image uploads (PDFs) have no object URL to show.
-                              <div className="flex flex-col items-center text-slate-400">
-                                <FileText className="w-5 h-5" />
-                                <span className="text-[9px] font-semibold mt-1">Document ready</span>
-                              </div>
-                            )}
-                            {isScanning && (
-                              <div className="absolute inset-x-0 h-[2px] bg-[#F15840] shadow-[0_0_12px_#F15840] loop-sweep pointer-events-none" />
-                            )}
-                            {/* Verified / flagged stamp — plays once when this
-                                document settles, and stays as the marker. */}
-                            {!isScanning && (isDocOk || isDocBad) && <DocVerdictOverlay ok={isDocOk} />}
-                            {/* Hover affordance: signals the card enlarges on click. */}
-                            {!isScanning && (
-                              <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-slate-900/45 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                <Maximize2 className="w-3 h-3" />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex flex-col items-center justify-center h-[100px] cursor-pointer group hover:bg-slate-50/80 transition-colors">
-                          <Upload className="w-4 h-4 text-slate-300 group-hover:text-[#F15840] mb-2 transition-colors" />
-                          <span className="text-[10px] text-slate-500 font-semibold">{doc.label}</span>
-                          <span className="text-[9px] text-slate-300 mt-0.5">Click to add</span>
-                          <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            className="hidden"
-                            onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])}
-                          />
-                        </label>
+                return (
+                  <div
+                    key={doc.key}
+                    className={`flex-1 min-w-0 flex flex-col min-h-0 rounded-2xl overflow-hidden border bg-white shadow-soft transition-colors
+                      ${isDocOk ? 'border-emerald-300' : isDocBad ? 'border-rose-300' : 'border-slate-200/70'}`}
+                  >
+                    {/* Lane header */}
+                    <div className={`bg-gradient-to-r ${doc.accent} px-2.5 h-8 flex items-center justify-between gap-1 shrink-0`}>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <DocIcon className="w-3.5 h-3.5 text-white/90 shrink-0" />
+                        <span className="text-white font-bold text-[10px] tracking-wide truncate">{doc.label}</span>
+                      </div>
+                      {isDocOk && (
+                        <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-wider text-white bg-white/20 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
+                          <Check className="w-2.5 h-2.5" /> Verified
+                        </span>
+                      )}
+                      {isDocBad && (
+                        <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-wider text-white bg-white/20 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
+                          <X className="w-2.5 h-2.5" /> Flagged
+                        </span>
                       )}
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Extracted data */}
-              <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-slate-200/70 shadow-soft bg-white">
-                {selDocData ? (
-                  <ExtractedDataCard
-                    data={selDocData}
-                    docType={selDocType}
-                    documentId={documentIdMap[selectedDoc] || null}
-                    onRevalidate={() => {}}
-                    agentProgress={selDocProgress || initialAgentProgress}
-                  />
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
-                      <FileText className="w-5 h-5 text-slate-300" />
+                    {/* Document image — click to enlarge */}
+                    {hasFile ? (
+                      <div
+                        onClick={openPreview}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview(); } }}
+                        aria-label={`Enlarge ${doc.label}`}
+                        className="group focusable relative h-[68px] bg-slate-50 flex items-center justify-center overflow-hidden cursor-pointer shrink-0 border-b border-slate-100"
+                      >
+                        {preview ? (
+                          <img src={preview} alt={`${doc.label} preview`} className="h-full w-full object-contain" />
+                        ) : (
+                          <div className="flex flex-col items-center text-slate-400">
+                            <FileText className="w-5 h-5" />
+                            <span className="text-[9px] font-semibold mt-1">Document ready</span>
+                          </div>
+                        )}
+                        {isScanning && (
+                          <div className="absolute inset-x-0 h-[2px] bg-[#F15840] shadow-[0_0_12px_#F15840] loop-sweep pointer-events-none" />
+                        )}
+                        {!isScanning && (isDocOk || isDocBad) && <DocVerdictOverlay ok={isDocOk} />}
+                        {!isScanning && (
+                          <div className="absolute top-1 right-1 w-5 h-5 rounded-md bg-slate-900/45 backdrop-blur-sm text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <Maximize2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center h-[68px] cursor-pointer group hover:bg-slate-50/80 transition-colors shrink-0 border-b border-slate-100">
+                        <Upload className="w-4 h-4 text-slate-300 group-hover:text-[#F15840] mb-1 transition-colors" />
+                        <span className="text-[9px] text-slate-500 font-semibold">Add {doc.label}</span>
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={(e) => handleFileSelect(doc.key, doc.setter, e.target.files?.[0])}
+                        />
+                      </label>
+                    )}
+
+                    {/* Extracted fields — fill in when this document completes */}
+                    <div className="flex-1 min-h-0 overflow-auto custom-scrollbar p-1.5">
+                      {fields.length ? (
+                        <div className="space-y-1 enter-fade">
+                          <div className="flex items-center justify-between px-0.5 pb-1 mb-0.5 border-b border-slate-100">
+                            <span className="label">Extracted</span>
+                            {confidence && <span className="text-[8px] font-bold text-emerald-600 tabular">{confidence}%</span>}
+                          </div>
+                          {fields.map(([k, v]) => (
+                            <div key={k} className="px-1.5 py-1 rounded-md bg-slate-50/70 border border-slate-100">
+                              <span className="block text-[8px] font-bold uppercase tracking-wide text-slate-400 truncate">{k.replace(/_/g, ' ')}</span>
+                              <span className="block text-[10px] font-semibold font-mono text-slate-800 truncate" title={String(v)}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : isScanning ? (
+                        <div className="h-full flex flex-col items-center justify-center text-center px-2">
+                          <Loader2 className="w-4 h-4 text-[#F15840] loop-spin mb-1.5" />
+                          <span className="text-[9px] font-semibold text-slate-500">Extracting…</span>
+                        </div>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-center px-2">
+                          <FileText className="w-4 h-4 text-slate-300 mb-1" />
+                          <span className="text-[9px] font-medium text-slate-400">Awaiting data</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs font-semibold text-slate-500">No extracted data yet</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Add a document or run the demo to begin</p>
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
           </div>
 
