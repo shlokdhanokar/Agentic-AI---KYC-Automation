@@ -3,7 +3,8 @@ import {
   Upload, CheckCircle2, XCircle, Play, Lock, Database, ShieldAlert, ShieldCheck, Cpu,
   Activity, User, Edit2, Users, Search, RefreshCw, LayoutDashboard, Brain, ScanLine,
   FileText, LogOut, Hash, Calendar, Globe, Plane, Car, CreditCard, Terminal,
-  Sparkles, Fingerprint, ChevronRight, Clock, Save, Loader2, AlertCircle
+  Sparkles, Fingerprint, ChevronRight, Clock, Save, Loader2, AlertCircle,
+  Network, Cloud, Zap, Server, ArrowRight
 } from 'lucide-react';
 import CoforgeLogoImage from './Coforge-logo-Coral-Blue.png';
 
@@ -521,6 +522,230 @@ const UserManagementDashboard = () => {
 };
 
 // ═══════════════════════════════════════════════════
+//  AGENT DEFINITIONS — single source of truth
+//  Drives the Command Center pipeline strip, the Architecture diagram and the
+//  roster, so the three views can never disagree about what the system is.
+//  `stage` maps each agent onto the backend's progress payload keys; the roles
+//  and services below match what app.py actually does (verified against the
+//  live pipeline's log tags and the Groq / Azure / Redis / OFAC integrations).
+// ═══════════════════════════════════════════════════
+const ACCENT = {
+  sky:     { text: 'text-sky-600',     bg: 'bg-sky-50',     border: 'border-sky-200',     ring: 'ring-sky-200'     },
+  emerald: { text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', ring: 'ring-emerald-200' },
+  amber:   { text: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200',   ring: 'ring-amber-200'   },
+  violet:  { text: 'text-violet-600',  bg: 'bg-violet-50',  border: 'border-violet-200',  ring: 'ring-violet-200'  },
+};
+
+const AGENTS = [
+  {
+    id: 'vision', stage: 'agent1', index: 1, name: 'Vision Agent', short: 'Vision OCR',
+    icon: ScanLine, accent: 'sky',
+    role: 'Reads the document, classifies its type and extracts structured fields from the raw OCR text.',
+    tools: ['Azure Blob', 'Form Recognizer', 'Groq Llama 3.3'],
+    input: 'Document image', output: 'Structured fields + type',
+    tool: { icon: Cloud, label: 'Azure Blob · Form Recognizer' },
+  },
+  {
+    id: 'database', stage: 'agent2', index: 2, name: 'Database Agent', short: 'DB Agent',
+    icon: Database, accent: 'emerald',
+    role: 'Cross-references the extracted identity against the customer record store.',
+    tools: ['Redis'],
+    input: 'Extracted identity', output: 'Record match',
+    tool: { icon: Server, label: 'Redis datastore' },
+  },
+  {
+    id: 'compliance', stage: 'agent3', index: 3, name: 'Compliance Agent', short: 'Compliance',
+    icon: ShieldAlert, accent: 'amber',
+    role: 'Screens the applicant against the OFAC sanctions (SDN) watchlist.',
+    tools: ['OFAC SDN'],
+    input: 'Verified identity', output: 'Watchlist verdict',
+    tool: { icon: ShieldAlert, label: 'OFAC SDN list' },
+  },
+  {
+    id: 'orchestrator', stage: 'kycComplete', index: 4, name: 'Orchestrator Agent', short: 'Orchestrator',
+    icon: Brain, accent: 'violet',
+    role: 'Delegates to each agent, synthesises the final KYC decision and persists the outcome.',
+    tools: ['Groq Llama 3.3', 'Redis'],
+    input: 'All agent outputs', output: 'KYC decision',
+    tool: { icon: Zap, label: 'Groq Llama 3.3 70B' },
+  },
+];
+
+// Map a raw backend status onto the shared visual vocabulary.
+const agentState = (status) =>
+  status === 'completed' ? { label: 'Ready',    chip: 'chip-ok'      }
+    : (status === 'invalid' || status === 'error') ? { label: 'Flagged', chip: 'chip-bad'   }
+      : status === 'processing' ? { label: 'Working', chip: 'chip-warn' }
+        : { label: 'Standby', chip: 'chip-neutral' };
+
+// ═══════════════════════════════════════════════════
+//  ARCHITECTURE VIEW — static system diagram + live agent roster
+// ═══════════════════════════════════════════════════
+
+// A node in the diagram tiers. `w-1/3` columns (rather than a gapped grid) give
+// exact thirds, so the branch/drop connectors line up on every viewport width.
+const DiagramAgent = ({ agent, status }) => {
+  const a = ACCENT[agent.accent];
+  const st = agentState(status);
+  const Icon = agent.icon;
+  return (
+    <div className={`w-full max-w-[180px] rounded-xl border bg-white ${a.border} shadow-soft px-3 py-3 text-center`}>
+      <div className={`w-10 h-10 mx-auto rounded-xl ${a.bg} ${a.text} flex items-center justify-center`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className="text-[12px] font-bold text-slate-800 mt-2">{agent.name}</p>
+      <span className={`chip ${st.chip} mt-1.5`}>{st.label}</span>
+    </div>
+  );
+};
+
+const DiagramTool = ({ tool }) => {
+  const Icon = tool.icon;
+  return (
+    <div className="w-full max-w-[180px] rounded-lg border border-slate-200 bg-slate-50/70 px-2.5 py-2 flex items-center gap-2 justify-center">
+      <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+      <span className="text-[10px] font-semibold text-slate-500 leading-tight text-center">{tool.label}</span>
+    </div>
+  );
+};
+
+// Exact thirds: no CSS gap (which would shift column centres); spacing comes
+// from internal padding, so a column centre is always at 1/6, 1/2, 5/6.
+const Third = ({ children }) => (
+  <div className="w-1/3 flex justify-center px-1.5">{children}</div>
+);
+
+const ArchitectureView = ({ agentProgressMap }) => {
+  const workers = AGENTS.filter(a => a.id !== 'orchestrator');
+  // Reflect the most recently processed document, so after a run the roster
+  // shows real per-agent outcomes instead of a permanently idle mock.
+  const latest = Object.values(agentProgressMap).slice(-1)[0] || null;
+  const statusFor = (stage) => latest?.[stage]?.status || 'idle';
+
+  return (
+    <div className="max-w-5xl mx-auto p-6 enter-fade">
+
+      {/* Header */}
+      <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
+        <div>
+          <h2 className="text-[22px] font-extrabold text-[#001f3f] tracking-tight">System Architecture</h2>
+          <p className="text-slate-400 text-xs mt-1 max-w-lg">
+            Four specialised agents, coordinated by an orchestrator — each backed by a dedicated cloud service.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="chip chip-neutral"><Network className="w-3 h-3" /> 4 agents</span>
+          <span className="chip chip-neutral"><Cpu className="w-3 h-3" /> Groq Llama 3.3 70B</span>
+        </div>
+      </div>
+
+      {/* Diagram */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-card p-6 sm:p-8 mb-6 overflow-x-auto">
+        <div className="min-w-[540px] max-w-2xl mx-auto">
+
+          {/* Tier caption */}
+          <p className="label text-center mb-3">Coordinator</p>
+
+          {/* Tier 1 — orchestrator */}
+          <div className="flex justify-center">
+            <div className="w-full max-w-md rounded-xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white shadow-soft px-4 py-3 flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center shrink-0">
+                <Brain className="w-5 h-5" />
+              </div>
+              <div className="text-left min-w-0">
+                <p className="text-[13px] font-extrabold text-slate-800">Orchestrator Agent</p>
+                <p className="text-[11px] text-slate-500 leading-snug">Delegates to the agents · synthesises the KYC decision</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Branch connector — stub, bus, three drops (all at exact thirds) */}
+          <div className="relative h-9" aria-hidden="true">
+            <div className="absolute left-1/2 -translate-x-1/2 top-0 h-4 w-px bg-slate-300" />
+            <div className="absolute top-4 h-px bg-slate-300" style={{ left: '16.6667%', right: '16.6667%' }} />
+            {['16.6667%', '50%', '83.3333%'].map((l, i) => (
+              <div key={i} className="absolute top-4 h-5 w-px bg-slate-300" style={{ left: l }} />
+            ))}
+          </div>
+
+          <p className="label text-center mb-3">Agents</p>
+
+          {/* Tier 2 — worker agents */}
+          <div className="flex">
+            {workers.map(a => (
+              <Third key={a.id}><DiagramAgent agent={a} status={statusFor(a.stage)} /></Third>
+            ))}
+          </div>
+
+          {/* Straight drops to the service tier */}
+          <div className="flex" aria-hidden="true">
+            {workers.map(a => (
+              <div key={a.id} className="w-1/3 flex justify-center">
+                <div className="w-px h-6 bg-slate-300" />
+              </div>
+            ))}
+          </div>
+
+          <p className="label text-center mb-3">Services &amp; tools</p>
+
+          {/* Tier 3 — external services */}
+          <div className="flex">
+            {workers.map(a => (
+              <Third key={a.id}><DiagramTool tool={a.tool} /></Third>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Roster */}
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="label">Agent roster</h3>
+        <span className="h-px flex-1 bg-slate-200/70" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 stagger">
+        {AGENTS.map(agent => {
+          const a = ACCENT[agent.accent];
+          const st = agentState(statusFor(agent.stage));
+          const Icon = agent.icon;
+          return (
+            <div key={agent.id} className="bg-white rounded-2xl border border-slate-200/70 shadow-soft p-4 enter-rise">
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl ${a.bg} ${a.text} flex items-center justify-center shrink-0`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[13px] font-bold text-slate-800">{agent.name}</p>
+                    <span className={`chip ${st.chip}`}>{st.label}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{agent.role}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {agent.tools.map(t => (
+                  <span key={t} className="inline-flex items-center gap-1 text-[9px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/70 rounded-md px-1.5 py-0.5">
+                    {t}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500 border-t border-slate-100 pt-2.5">
+                <span className="label shrink-0">In</span>
+                <span className="truncate">{agent.input}</span>
+                <ArrowRight className="w-3 h-3 text-slate-300 shrink-0" />
+                <span className="label shrink-0">Out</span>
+                <span className="truncate font-medium text-slate-600">{agent.output}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════
 //  MAIN APPLICATION
 // ═══════════════════════════════════════════════════
 const initialAgentProgress = {
@@ -946,6 +1171,7 @@ const KYCPortal = () => {
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-slate-100/80 border border-slate-200/80 rounded-xl p-1">
           {[
             { id: 'live_kyc', label: 'Command Center', icon: LayoutDashboard },
+            { id: 'architecture', label: 'Architecture', icon: Network },
             { id: 'user_management', label: 'Audit & Users', icon: Users }
           ].map(({ id, label, icon: TabIcon }) => (
             <button
@@ -1030,10 +1256,24 @@ const KYCPortal = () => {
                   <line x1="0" y1="2" x2="100%" y2="2" stroke="#F15840" strokeWidth="2" strokeDasharray="6 8" strokeLinecap="round" className="loop-flow" />
                 </svg>
               )}
-              <PipelineNode icon={ScanLine} title="Vision OCR" index={1} status={displayProgress?.agent1?.status} active={activeAgent === 1} />
-              <PipelineNode icon={Database} title="DB Agent" index={2} status={displayProgress?.agent2?.status} active={activeAgent === 2} />
-              <PipelineNode icon={ShieldAlert} title="Compliance" index={3} status={displayProgress?.agent3?.status} active={activeAgent === 3} />
-              <PipelineNode icon={Brain} title="Orchestrator" index={4} status={displayProgress?.kycComplete?.status} active={activeAgent === 4 || (displayProgress?.kycComplete?.status && displayProgress?.kycComplete?.status !== 'idle')} />
+              {AGENTS.map(agent => {
+                const status = displayProgress?.[agent.stage]?.status;
+                // The orchestrator also counts as active once it holds any
+                // non-idle status, since it renders the final verdict.
+                const active = agent.id === 'orchestrator'
+                  ? (activeAgent === 4 || (status && status !== 'idle'))
+                  : activeAgent === agent.index;
+                return (
+                  <PipelineNode
+                    key={agent.id}
+                    icon={agent.icon}
+                    title={agent.short}
+                    index={agent.index}
+                    status={status}
+                    active={active}
+                  />
+                );
+              })}
             </div>
           </div>
 
@@ -1183,6 +1423,10 @@ const KYCPortal = () => {
               </div>
             )}
           </div>
+        </div>
+      ) : currentTab === 'architecture' ? (
+        <div className="flex-1 overflow-auto">
+          <ArchitectureView agentProgressMap={agentProgressMap} />
         </div>
       ) : (
         <div className="flex-1 overflow-auto">
