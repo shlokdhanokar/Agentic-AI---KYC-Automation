@@ -198,19 +198,9 @@
 .chip-warn    { background: rgba(245, 158, 11, 0.12); color: #b45309; border-color: rgba(245, 158, 11, 0.30); }
 .chip-neutral { background: rgba(100, 116, 139, 0.09); color: var(--ink-500); border-color: var(--line-strong); }
 
-/* Console tag chip — monospace, sits inside the dark terminal. */
-.tag {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid currentColor;
-  opacity: 0.9;
-}
+/* The console's agent/scope chips are composed from utilities in App.js
+   (TAG_BASE + a per-agent colour set) so the fill, text and border colours stay
+   in one place next to the agent palette. */
 
 /* Focus — one consistent ring everywhere, keyboard users included. */
 .focusable:focus-visible,

@@ -50,26 +50,43 @@ const parseLog = (raw = '') => {
   };
 };
 
-// Five tones, not ten. Every line maps to one of: failure, success, model
-// output, orchestration, or ordinary agent progress.
-const TONES = {
-  error:  { body: 'text-rose-300',    rail: 'bg-rose-400/70',    tag: 'text-rose-300/75'    },
-  ok:     { body: 'text-emerald-300', rail: 'bg-emerald-400/70', tag: 'text-emerald-300/75' },
-  ai:     { body: 'text-violet-300',  rail: 'bg-violet-400/70',  tag: 'text-violet-300/75'  },
-  system: { body: 'text-slate-400',   rail: 'bg-slate-500/50',   tag: 'text-slate-500/75'   },
-  info:   { body: 'text-sky-300',     rail: 'bg-sky-400/60',     tag: 'text-sky-300/75'     }
+// Colour here encodes WHO is speaking. Each agent keeps the same hue it carries
+// in the Architecture view and its document lane, so a run can be scanned by
+// agent at a glance instead of reading every line. Two semantic overrides sit on
+// top: failures go rose and final verdicts go emerald, so a decision or an error
+// still jumps out of an otherwise colourful stream.
+const AGENT_STYLE = {
+  'Vision Agent':       { body: 'text-sky-100',     rail: 'bg-sky-400',     tag: 'bg-sky-400/20 text-sky-200 border-sky-400/40'         },
+  'Database Agent':     { body: 'text-emerald-100', rail: 'bg-emerald-400', tag: 'bg-emerald-400/20 text-emerald-200 border-emerald-400/40' },
+  'Compliance Agent':   { body: 'text-amber-100',   rail: 'bg-amber-400',   tag: 'bg-amber-400/20 text-amber-200 border-amber-400/40'     },
+  'Orchestrator Agent': { body: 'text-violet-100',  rail: 'bg-violet-400',  tag: 'bg-violet-400/20 text-violet-200 border-violet-400/40'  },
+  'Form Recognizer':    { body: 'text-cyan-100',    rail: 'bg-cyan-400',    tag: 'bg-cyan-400/20 text-cyan-200 border-cyan-400/40'       },
+  'Groq AI':            { body: 'text-fuchsia-100', rail: 'bg-fuchsia-400', tag: 'bg-fuchsia-400/20 text-fuchsia-200 border-fuchsia-400/40' },
+  'Gemini AI':          { body: 'text-fuchsia-100', rail: 'bg-fuchsia-400', tag: 'bg-fuchsia-400/20 text-fuchsia-200 border-fuchsia-400/40' },
+  'AI Agent':           { body: 'text-fuchsia-100', rail: 'bg-fuchsia-400', tag: 'bg-fuchsia-400/20 text-fuchsia-200 border-fuchsia-400/40' },
+  'Human Agent':        { body: 'text-pink-100',    rail: 'bg-pink-400',    tag: 'bg-pink-400/20 text-pink-200 border-pink-400/40'       },
+  'System':             { body: 'text-slate-200',   rail: 'bg-slate-400',   tag: 'bg-slate-400/15 text-slate-300 border-slate-400/30'    },
 };
 
-const toneOf = (log) => {
+const FALLBACK_STYLE = { body: 'text-slate-200', rail: 'bg-slate-500', tag: 'bg-slate-400/15 text-slate-300 border-slate-400/30' };
+const ERROR_STYLE    = { body: 'text-rose-100',  rail: 'bg-rose-400',  tag: 'bg-rose-500/25 text-rose-200 border-rose-400/50'    };
+
+// Document scope chip ([PASSPORT] etc.) stays neutral so it never competes with
+// the agent colour that carries the meaning on each line.
+const SCOPE_TAG = 'bg-white/[0.07] text-slate-300 border-white/15';
+const TAG_BASE = 'inline-flex items-center shrink-0 text-[9px] font-semibold tracking-wide px-1.5 py-px rounded border';
+
+const styleForLog = (log, tags) => {
   const text = log.text || '';
-  if (log.error || /✗|\bREJECTED\b|\bINVALID\b|\[Error\]|\bfailed\b/i.test(text)) return 'error';
-  // Green is reserved for verdicts, not for routine progress. The backend marks
-  // almost every step with a ✓, so treating that as success turned the whole
-  // stream green and buried the decision that actually matters.
-  if (/\bAPPROVED\b|\bVALID\b|processed successfully/i.test(text)) return 'ok';
-  if (/\[(Groq AI|AI Agent|Gemini AI)\]/.test(text)) return 'ai';
-  if (/\[(System|Orchestrator)/.test(text)) return 'system';
-  return 'info';
+  if (log.error || /✗|\bREJECTED\b|\bINVALID\b|\[Error\]|\bfailed\b/i.test(text)) return ERROR_STYLE;
+  // The last tag is the speaking agent; earlier tags are document scope.
+  const base = AGENT_STYLE[tags[tags.length - 1]] || FALLBACK_STYLE;
+  // The backend marks nearly every step with a ✓, so only true verdicts go green
+  // — otherwise the whole stream turns one colour and the decision is buried.
+  if (/\bAPPROVED\b|\bVALID\b|processed successfully/i.test(text)) {
+    return { ...base, body: 'text-emerald-200 font-semibold', rail: 'bg-emerald-400' };
+  }
+  return base;
 };
 
 const AgentConsole = ({ logs }) => {
@@ -118,31 +135,32 @@ const AgentConsole = ({ logs }) => {
               <Cpu className="w-4 h-4 text-slate-600" />
             </div>
             <p className="text-slate-500 text-[11px] font-sans font-medium">Awaiting pipeline initialisation</p>
-            <p className="text-slate-700 text-[10px] font-sans mt-1">Agent output will stream here in real time</p>
+            <p className="text-slate-600 text-[10px] font-sans mt-1">Agent output will stream here in real time</p>
           </div>
         ) : (
           <div className="space-y-px">
             {logs.map((log, i) => {
-              const tone = TONES[toneOf(log)];
               const { tags, body } = parseLog(log.text);
+              const style = styleForLog(log, tags);
+              const lastTag = tags.length - 1;
               return (
                 <div
                   key={i}
-                  className="flex items-stretch gap-2.5 rounded-md px-1.5 py-[5px] enter-slide hover:bg-white/[0.03] transition-colors"
+                  className="flex items-stretch gap-2.5 rounded-md px-1.5 py-[5px] enter-slide hover:bg-white/[0.05] transition-colors"
                 >
                   {/* Some backend lines carry no timestamp; leave the column
                       blank rather than printing a placeholder clock. */}
-                  <span className="w-[52px] shrink-0 select-none text-[10px] text-slate-600 tabular pt-px">
+                  <span className="w-[52px] shrink-0 select-none text-[10px] text-slate-500 tabular pt-px">
                     {log.time || ''}
                   </span>
-                  <span className={`w-[2px] shrink-0 rounded-full ${tone.rail}`} aria-hidden="true" />
+                  <span className={`w-[3px] shrink-0 rounded-full ${style.rail}`} aria-hidden="true" />
                   <div className="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
                     {tags.map((tag, t) => (
-                      <span key={t} className={`tag ${t === 0 && tags.length > 1 ? 'text-slate-600' : tone.tag}`}>
+                      <span key={t} className={`${TAG_BASE} ${t === lastTag ? style.tag : SCOPE_TAG}`}>
                         {tag}
                       </span>
                     ))}
-                    <span className={`text-[11px] leading-relaxed break-words ${tone.body}`}>{body}</span>
+                    <span className={`text-[11px] leading-relaxed break-words ${style.body}`}>{body}</span>
                   </div>
                 </div>
               );
@@ -152,9 +170,9 @@ const AgentConsole = ({ logs }) => {
       </div>
 
       {/* Footer */}
-      <div className="px-4 h-8 bg-[#10151d] border-t border-slate-800/70 text-[9px] text-slate-600 flex items-center justify-between shrink-0 font-sans">
+      <div className="px-4 h-8 bg-[#10151d] border-t border-slate-800/70 text-[9px] text-slate-500 flex items-center justify-between shrink-0 font-sans">
         <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq Llama 3.3</span>
-        <span className="text-slate-700 shrink-0 ml-3">v2.0</span>
+        <span className="text-slate-600 shrink-0 ml-3">v2.0</span>
       </div>
     </div>
   );
