@@ -12,6 +12,18 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 
 const now = () => new Date().toLocaleTimeString('en-US', { hour12: false });
 
+// Run clock, e.g. 01:07.4 — tabular digits keep it from jittering as it ticks.
+const formatDuration = (ms) => {
+  const total = Math.max(0, ms || 0);
+  const mins = Math.floor(total / 60000);
+  const secs = Math.floor((total % 60000) / 1000);
+  const tenths = Math.floor((total % 1000) / 100);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${tenths}`;
+};
+
+// Per-document duration, e.g. 8.2s
+const formatSeconds = (ms) => `${(Math.max(0, ms || 0) / 1000).toFixed(1)}s`;
+
 // The CSS media query in index.css cannot reach JS-driven motion, so scripted
 // scrolling checks the same preference itself.
 const reducedMotion = () =>
@@ -691,6 +703,12 @@ const KYCPortal = () => {
   const [previewUrls, setPreviewUrls] = useState({ passport: null, license: null, idCard: null });
   const [uploading, setUploading] = useState(false);
 
+  // Run clock. runStart anchors the elapsed time; runElapsed ticks while the
+  // pipeline is active and then holds the final duration once it settles.
+  const [runStart, setRunStart] = useState(null);
+  const [runElapsed, setRunElapsed] = useState(0);
+  const [docTimings, setDocTimings] = useState({}); // key -> { start, end }
+
   const [agentLogs, setAgentLogs] = useState([]);
   const [uploadQueue, setUploadQueue] = useState([]);
   const [currentDocIndex, setCurrentDocIndex] = useState(-1);
@@ -707,6 +725,15 @@ const KYCPortal = () => {
   const VALID_USERNAME = "shlok";
   const VALID_PASSWORD = "12345";
 
+  // Tick the run clock only while the pipeline is actually running. This is a
+  // data update, not decorative motion, and it stops the moment work finishes —
+  // so an idle dashboard has no timers running.
+  useEffect(() => {
+    if (!uploading || !runStart) return;
+    const id = setInterval(() => setRunElapsed(Date.now() - runStart), 100);
+    return () => clearInterval(id);
+  }, [uploading, runStart]);
+
   // Handle sequential queue
   useEffect(() => {
     if (uploadQueue.length > 0 && currentDocIndex < uploadQueue.length && !activePollingId) {
@@ -717,6 +744,7 @@ const KYCPortal = () => {
         // completed document's extracted data stays on screen instead of being
         // cleared the instant the next document starts processing.
         setAgentLogs(prev => [...prev, { text: `[System] Starting KYC process for ${item.label}...`, time: now() }]);
+        setDocTimings(prev => ({ ...prev, [item.key]: { start: Date.now(), end: null } }));
 
         let docIdToPoll = null;
         if (item.file) {
@@ -763,6 +791,9 @@ const KYCPortal = () => {
       startNextDoc();
     } else if (uploadQueue.length > 0 && currentDocIndex >= uploadQueue.length) {
       setUploading(false);
+      // The clock stops here: the ticking effect unmounts when `uploading`
+      // goes false, so runElapsed holds the final duration (accurate to the
+      // 100ms tick, which is the precision we display anyway).
       setAgentLogs(prev => {
         const hasRejection = prev.some(l => l.text.includes('KYC REJECTED'));
         const newLogs = [...prev];
@@ -812,6 +843,10 @@ const KYCPortal = () => {
           if (data.document_data) {
             setExtractedDataMap(prev => ({ ...prev, [activePollingKey]: data.document_data }));
           }
+          setDocTimings(prev => ({
+            ...prev,
+            [activePollingKey]: { ...(prev[activePollingKey] || {}), end: Date.now() }
+          }));
 
           // Surface this document's freshly extracted data in the panel and
           // keep it there until the next document completes — so the three
@@ -861,6 +896,9 @@ const KYCPortal = () => {
     setUploading(true);
     setAgentProgressMap({});
     setExtractedDataMap({});
+    setRunStart(Date.now());
+    setRunElapsed(0);
+    setDocTimings({});
   };
 
   const handleUpload = () => {
@@ -1154,14 +1192,29 @@ const KYCPortal = () => {
                 <Activity className="w-3.5 h-3.5 text-[#F15840]" />
                 Multi-agent processing pipeline
               </h3>
-              {/* Static while running: the connector below already carries the
-                  motion, so a second indicator here would just add noise. */}
-              {uploading && (
-                <span className="chip chip-warn">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  Processing
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {/* Run clock — live while processing, then holds the total. */}
+                {(uploading || runElapsed > 0) && (
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 font-mono text-[11px] font-semibold tabular
+                      ${uploading
+                        ? 'border-[#F15840]/25 bg-[#F15840]/10 text-[#F15840]'
+                        : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}
+                    title={uploading ? 'Elapsed run time' : 'Total run time'}
+                  >
+                    <Clock className="w-3 h-3" />
+                    {formatDuration(runElapsed)}
+                  </span>
+                )}
+                {/* Static while running: the connector below already carries the
+                    motion, so a second indicator here would just add noise. */}
+                {uploading && (
+                  <span className="chip chip-warn">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Processing
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-start justify-between px-4 w-full max-w-3xl mx-auto relative">
@@ -1223,6 +1276,8 @@ const KYCPortal = () => {
                   ? Object.entries(data).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-')
                   : [];
                 const confidence = data?.confidence_score;
+                const timing = docTimings[doc.key];
+                const docMs = timing?.start && timing?.end ? timing.end - timing.start : null;
                 const openPreview = () => { setSelectedDoc(doc.key); if (hasFile) setPreviewDoc(doc.key); };
 
                 return (
@@ -1294,9 +1349,16 @@ const KYCPortal = () => {
                     <div className="flex-1 min-h-0 overflow-auto custom-scrollbar p-1.5">
                       {fields.length ? (
                         <div className="space-y-1 enter-fade">
-                          <div className="flex items-center justify-between px-0.5 pb-1 mb-0.5 border-b border-slate-100">
+                          <div className="flex items-center justify-between gap-1 px-0.5 pb-1 mb-0.5 border-b border-slate-100">
                             <span className="label">Extracted</span>
-                            {confidence && <span className="text-[8px] font-bold text-emerald-600 tabular">{confidence}%</span>}
+                            <span className="flex items-center gap-1.5 shrink-0">
+                              {docMs != null && (
+                                <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold text-slate-400 tabular" title="Processing time for this document">
+                                  <Clock className="w-2.5 h-2.5" />{formatSeconds(docMs)}
+                                </span>
+                              )}
+                              {confidence && <span className="text-[8px] font-bold text-emerald-600 tabular">{confidence}%</span>}
+                            </span>
                           </div>
                           {fields.map(([k, v]) => (
                             <div key={k} className="px-1.5 py-1 rounded-md bg-slate-50/70 border border-slate-100">
