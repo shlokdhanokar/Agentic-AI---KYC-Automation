@@ -1,9 +1,10 @@
 # app.py
 import os
 import json
+import time
 import uuid
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -866,13 +867,9 @@ def get_alerts_endpoint():
     alerts = database.get_alerts()
     return jsonify(alerts)
 
-@app.route('/process-logs/<document_id>', methods=['GET'])
-def get_process_logs(document_id):
-    info = database.get_document_status(document_id)
-    if not info:
-        return jsonify({'status': 'not_found', 'logs': []}), 404
-
-    return jsonify({
+def _progress_payload(info):
+    """The shape both the polling endpoint and the SSE stream return."""
+    return {
         'status': info.get('status', 'unknown'),
         'logs': info.get('logs', []),
         'verification_status': info.get('verification_status'),
@@ -880,7 +877,73 @@ def get_process_logs(document_id):
         'document_type': info.get('document_type'),
         'document_data': info.get('document_data'),
         'message': info.get('message')
-    })
+    }
+
+
+@app.route('/process-logs/<document_id>', methods=['GET'])
+def get_process_logs(document_id):
+    """Polling endpoint. Retained as the fallback when a client cannot hold an
+    SSE connection (proxy buffering, EventSource unavailable)."""
+    info = database.get_document_status(document_id)
+    if not info:
+        return jsonify({'status': 'not_found', 'logs': []}), 404
+
+    return jsonify(_progress_payload(info))
+
+
+@app.route('/stream-logs/<document_id>', methods=['GET'])
+def stream_process_logs(document_id):
+    """Server-sent events stream of a document's progress.
+
+    The agents write their state to Redis, so this watches Redis server-side
+    and pushes a frame only when the payload actually changes. That gives the
+    browser sub-second updates without it re-requesting the whole payload on a
+    fixed interval. The read is local and cheap, unlike a client round trip.
+    """
+    POLL_INTERVAL = 0.4      # seconds between Redis reads
+    MAX_DURATION = 300       # hard stop so a stream can never leak a thread
+    HEARTBEAT_EVERY = 15.0   # comment frame keeps idle proxies from closing us
+
+    @stream_with_context
+    def generate():
+        last_serialized = None
+        last_heartbeat = time.time()
+        deadline = time.time() + MAX_DURATION
+
+        while time.time() < deadline:
+            info = database.get_document_status(document_id)
+            if not info:
+                yield f"data: {json.dumps({'status': 'not_found', 'logs': []})}\n\n"
+                return
+
+            payload = _progress_payload(info)
+            serialized = json.dumps(payload)
+
+            if serialized != last_serialized:
+                last_serialized = serialized
+                last_heartbeat = time.time()
+                yield f"data: {serialized}\n\n"
+
+            # Terminal states end the stream; the client closes its EventSource.
+            if payload['status'] in ('completed', 'error'):
+                return
+
+            if time.time() - last_heartbeat >= HEARTBEAT_EVERY:
+                last_heartbeat = time.time()
+                yield ": keep-alive\n\n"
+
+            time.sleep(POLL_INTERVAL)
+
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            # Tell nginx-style proxies not to buffer, or events arrive in a clump.
+            'X-Accel-Buffering': 'no',
+        }
+    )
 
 # === FRONTEND SERVING ===
 @app.route('/', defaults={'path': ''})

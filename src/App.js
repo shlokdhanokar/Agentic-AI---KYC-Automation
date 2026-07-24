@@ -207,6 +207,16 @@ const PipelineNode = ({ icon: Icon, title, index, status, active }) => {
 };
 
 // ═══════════════════════════════════════════════════
+//  METRIC — one figure in the live telemetry strip
+// ═══════════════════════════════════════════════════
+const Metric = ({ label, value, tone = 'text-[#001f3f]' }) => (
+  <div className="flex flex-col items-center min-w-[64px]">
+    <span className={`text-[14px] font-extrabold tabular leading-none ${tone}`}>{value}</span>
+    <span className="label mt-1 whitespace-nowrap">{label}</span>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════
 //  DOCUMENT VERDICT OVERLAY — one-shot verified / flagged stamp
 //  Mounts the instant a single document reaches a terminal state, so its
 //  entrance plays exactly once. Rendered per card, and since the pipeline
@@ -714,7 +724,8 @@ const KYCPortal = () => {
   const [currentDocIndex, setCurrentDocIndex] = useState(-1);
   const [activePollingId, setActivePollingId] = useState(null);
   const [activePollingKey, setActivePollingKey] = useState(null);
-  const pollingRef = useRef(null);
+  // 'stream' when the live SSE feed is connected, 'polling' when we fell back.
+  const [streamMode, setStreamMode] = useState(null);
 
   const [agentProgressMap, setAgentProgressMap] = useState({});
   const [extractedDataMap, setExtractedDataMap] = useState({});
@@ -808,68 +819,123 @@ const KYCPortal = () => {
     }
   }, [uploadQueue, currentDocIndex, activePollingId]);
 
-  // Poll the backend for the *active* document only
+  // Track the *active* document. Prefers a live SSE stream and falls back to
+  // interval polling if the stream can't be established — some proxies buffer
+  // text/event-stream, and the demo must keep working either way.
   useEffect(() => {
     if (!activePollingId) return;
 
+    const docKey = activePollingKey;
+    let finished = false;      // completion must fire exactly once
+    let source = null;
+    let pollTimer = null;
+    let openTimeout = null;
 
-    const poll = async () => {
-      try {
-        const res = await fetch(`${API_URL}/process-logs/${activePollingId}`);
-        const data = await res.json();
+    const cleanup = () => {
+      if (source) { source.close(); source = null; }
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (openTimeout) { clearTimeout(openTimeout); openTimeout = null; }
+    };
 
-        if (data.logs) {
-          // Only take new logs we haven't rendered for this doc yet
-          const newLogs = data.logs.map(l => ({ ...l, text: `[${activePollingKey.toUpperCase()}] ${l.text}` }));
-          setAgentLogs(prev => {
-            // Keep the logs from previous docs + the newly polled logs for this doc
-            const historicLogs = prev.filter(l => !l.text.includes(`[${activePollingKey.toUpperCase()}] `));
-            return [...historicLogs, ...newLogs];
-          });
+    const handleUpdate = (data) => {
+      if (finished || !data) return;
+
+      if (data.logs) {
+        const newLogs = data.logs.map(l => ({ ...l, text: `[${docKey.toUpperCase()}] ${l.text}` }));
+        setAgentLogs(prev => {
+          // Replace this document's lines, keep every earlier document's.
+          const historicLogs = prev.filter(l => !l.text.includes(`[${docKey.toUpperCase()}] `));
+          return [...historicLogs, ...newLogs];
+        });
+      }
+
+      if (data.progress) {
+        setAgentProgressMap(prev => ({ ...prev, [docKey]: data.progress }));
+      }
+
+      if (data.status === 'completed' || data.status === 'error') {
+        finished = true;
+        const finalProgress = {
+          agent1: { name: "OCR Processing", progress: 100, status: "completed" },
+          agent2: { name: "Data Validation", progress: 100, status: (data.verification_status === 'VALID' || (data.verification_status === 'INVALID' && data.message?.includes('OFAC'))) ? "completed" : "invalid" },
+          agent3: { name: "OFAC Screening", progress: 100, status: data.verification_status === 'VALID' ? "completed" : (data.message?.includes('OFAC') ? "invalid" : "idle"), message: data.message },
+          kycComplete: { name: "KYC Decision", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid" }
+        };
+        setAgentProgressMap(prev => ({ ...prev, [docKey]: finalProgress }));
+        if (data.document_data) {
+          setExtractedDataMap(prev => ({ ...prev, [docKey]: data.document_data }));
         }
+        setDocTimings(prev => ({
+          ...prev,
+          [docKey]: { ...(prev[docKey] || {}), end: Date.now() }
+        }));
 
-        if (data.progress) {
-          setAgentProgressMap(prev => ({ ...prev, [activePollingKey]: data.progress }));
-        }
+        // Surface this document's freshly extracted data and keep it there
+        // until the next document completes.
+        setSelectedDoc(docKey);
 
-        if (data.status === 'completed' || data.status === 'error') {
-          const finalProgress = {
-            agent1: { name: "OCR Processing", progress: 100, status: "completed" },
-            agent2: { name: "Data Validation", progress: 100, status: (data.verification_status === 'VALID' || (data.verification_status === 'INVALID' && data.message?.includes('OFAC'))) ? "completed" : "invalid" },
-            agent3: { name: "OFAC Screening", progress: 100, status: data.verification_status === 'VALID' ? "completed" : (data.message?.includes('OFAC') ? "invalid" : "idle"), message: data.message },
-            kycComplete: { name: "KYC Decision", progress: 100, status: data.verification_status === 'VALID' ? "completed" : "invalid" }
-          };
-          setAgentProgressMap(prev => ({ ...prev, [activePollingKey]: finalProgress }));
-          if (data.document_data) {
-            setExtractedDataMap(prev => ({ ...prev, [activePollingKey]: data.document_data }));
-          }
-          setDocTimings(prev => ({
-            ...prev,
-            [activePollingKey]: { ...(prev[activePollingKey] || {}), end: Date.now() }
-          }));
-
-          // Surface this document's freshly extracted data in the panel and
-          // keep it there until the next document completes — so the three
-          // documents' results are shown one by one as the pipeline proceeds.
-          setSelectedDoc(activePollingKey);
-
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-          setActivePollingId(null);
-          setActivePollingKey(null);
-          setCurrentDocIndex(prev => prev + 1); // Trigger next doc
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
+        cleanup();
+        setActivePollingId(null);
+        setActivePollingKey(null);
+        setCurrentDocIndex(prev => prev + 1); // Trigger next doc
       }
     };
 
-    pollingRef.current = setInterval(poll, 1500);
-    poll();
-
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
+    const startPolling = () => {
+      if (finished || pollTimer) return;
+      setStreamMode('polling');
+      const poll = async () => {
+        try {
+          const res = await fetch(`${API_URL}/process-logs/${activePollingId}`);
+          handleUpdate(await res.json());
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      };
+      pollTimer = setInterval(poll, 1500);
+      poll();
     };
+
+    if (typeof window !== 'undefined' && 'EventSource' in window) {
+      let opened = false;
+      source = new EventSource(`${API_URL}/stream-logs/${activePollingId}`);
+
+      source.onopen = () => {
+        opened = true;
+        setStreamMode('stream');
+        if (openTimeout) { clearTimeout(openTimeout); openTimeout = null; }
+      };
+
+      source.onmessage = (e) => {
+        opened = true;
+        setStreamMode('stream');
+        try {
+          handleUpdate(JSON.parse(e.data));
+        } catch (err) {
+          console.error('SSE parse error:', err);
+        }
+      };
+
+      source.onerror = () => {
+        // The server closes the stream once the document reaches a terminal
+        // state, which surfaces here as an error — ignore it in that case.
+        if (finished) { cleanup(); return; }
+        if (source) { source.close(); source = null; }
+        startPolling();
+      };
+
+      // If nothing arrives promptly the stream is probably being buffered.
+      openTimeout = setTimeout(() => {
+        if (!opened && !finished) {
+          if (source) { source.close(); source = null; }
+          startPolling();
+        }
+      }, 4000);
+    } else {
+      startPolling();
+    }
+
+    return () => { finished = true; cleanup(); };
   }, [activePollingId, activePollingKey]);
 
 
@@ -1107,6 +1173,27 @@ const KYCPortal = () => {
   const allDocsApproved = allDocsProcessed && processedDocKeys.every(k => agentProgressMap[k]?.kycComplete?.status === 'completed');
   const overallStatus = !allDocsProcessed ? (uploading ? 'processing' : 'idle') : (allDocsApproved ? 'approved' : 'rejected');
 
+  // ── Live telemetry ────────────────────────────────────────────────────────
+  const doneKeys = processedDocKeys.filter(k => {
+    const s = agentProgressMap[k]?.kycComplete?.status;
+    return s === 'completed' || s === 'invalid';
+  });
+  const docDurations = doneKeys
+    .map(k => (docTimings[k]?.start && docTimings[k]?.end ? docTimings[k].end - docTimings[k].start : null))
+    .filter(Boolean);
+  const avgDocMs = docDurations.length
+    ? docDurations.reduce((a, b) => a + b, 0) / docDurations.length
+    : null;
+  const confidences = Object.values(extractedDataMap)
+    .map(d => d?.confidence_score)
+    .filter(v => typeof v === 'number');
+  const avgConfidence = confidences.length
+    ? Math.round(confidences.reduce((a, b) => a + b, 0) / confidences.length)
+    : null;
+  const totalFields = Object.values(extractedDataMap).reduce((n, d) => (
+    n + (d ? Object.entries(d).filter(([k, v]) => !['confidence_score', 'reasoning'].includes(k) && v && v !== '-').length : 0)
+  ), 0);
+
   const bannerTheme = {
     approved:   { shell: 'bg-emerald-50/80 border-emerald-200', icon: 'text-emerald-500', text: 'text-emerald-700', label: 'KYC Approved' },
     rejected:   { shell: 'bg-rose-50/80 border-rose-200',       icon: 'text-rose-500',    text: 'text-rose-700',    label: 'KYC Rejected' },
@@ -1206,6 +1293,18 @@ const KYCPortal = () => {
                     {formatDuration(runElapsed)}
                   </span>
                 )}
+                {/* Transport indicator — live push vs. polling fallback. */}
+                {uploading && streamMode && (
+                  <span
+                    className={`chip ${streamMode === 'stream' ? 'chip-ok' : 'chip-neutral'}`}
+                    title={streamMode === 'stream'
+                      ? 'Live server-sent event stream'
+                      : 'Stream unavailable — falling back to interval polling'}
+                  >
+                    <Zap className="w-3 h-3" />
+                    {streamMode === 'stream' ? 'Live stream' : 'Polling'}
+                  </span>
+                )}
                 {/* Static while running: the connector below already carries the
                     motion, so a second indicator here would just add noise. */}
                 {uploading && (
@@ -1247,6 +1346,29 @@ const KYCPortal = () => {
                   />
                 );
               })}
+            </div>
+
+            {/* ── Live telemetry strip ── */}
+            <div className="mt-3.5 pt-3 border-t border-slate-100 flex items-center justify-center gap-5 sm:gap-7 flex-wrap">
+              <Metric
+                label="Documents"
+                value={`${doneKeys.length}/${processedDocKeys.length}`}
+              />
+              <span className="h-7 w-px bg-slate-100" aria-hidden="true" />
+              <Metric
+                label="Avg / doc"
+                value={avgDocMs != null ? formatSeconds(avgDocMs) : '—'}
+              />
+              <span className="h-7 w-px bg-slate-100" aria-hidden="true" />
+              <Metric
+                label="Avg confidence"
+                value={avgConfidence != null ? `${avgConfidence}%` : '—'}
+                tone={avgConfidence == null ? 'text-[#001f3f]' : avgConfidence >= 90 ? 'text-emerald-600' : avgConfidence >= 70 ? 'text-amber-600' : 'text-rose-600'}
+              />
+              <span className="h-7 w-px bg-slate-100" aria-hidden="true" />
+              <Metric label="Fields extracted" value={totalFields || '—'} />
+              <span className="h-7 w-px bg-slate-100" aria-hidden="true" />
+              <Metric label="Agent events" value={agentLogs.length || '—'} />
             </div>
           </div>
 
