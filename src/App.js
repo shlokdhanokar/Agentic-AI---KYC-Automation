@@ -1428,19 +1428,23 @@ const KYCPortal = () => {
                     className={`flex-1 min-w-0 flex flex-col min-h-0 rounded-2xl overflow-hidden border bg-white shadow-soft transition-colors
                       ${isDocOk ? 'border-emerald-300' : isDocBad ? 'border-rose-300' : 'border-slate-200/70'}`}
                   >
-                    {/* Lane header */}
-                    <div className={`bg-gradient-to-r ${doc.accent} px-2.5 h-8 flex items-center justify-between gap-1 shrink-0`}>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <DocIcon className="w-3.5 h-3.5 text-white/90 shrink-0" />
-                        <span className="text-white font-bold text-[10px] tracking-wide truncate">{doc.label}</span>
+                    {/* Lane header — clean white bar with a colour accent line
+                        and icon tile, rather than a fully saturated banner. */}
+                    <div className="relative bg-white px-2.5 h-10 flex items-center justify-between gap-1.5 shrink-0 border-b border-slate-100">
+                      <span className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${doc.accent}`} aria-hidden="true" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={`w-6 h-6 rounded-lg bg-gradient-to-br ${doc.accent} flex items-center justify-center shadow-sm shrink-0`}>
+                          <DocIcon className="w-3.5 h-3.5 text-white" />
+                        </span>
+                        <span className="text-[#001f3f] font-bold text-[11px] tracking-tight truncate">{doc.label}</span>
                       </div>
                       {isDocOk && (
-                        <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-wider text-white bg-white/20 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
+                        <span className="chip chip-ok enter-pop shrink-0">
                           <Check className="w-2.5 h-2.5" /> Verified
                         </span>
                       )}
                       {isDocBad && (
-                        <span className="inline-flex items-center gap-0.5 text-[8px] font-extrabold uppercase tracking-wider text-white bg-white/20 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
+                        <span className="chip chip-bad enter-pop shrink-0">
                           <X className="w-2.5 h-2.5" /> Flagged
                         </span>
                       )}
