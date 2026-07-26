@@ -100,13 +100,15 @@ const AgentConsole = ({ logs }) => {
   const isIdle = logs.length === 0 || logs[logs.length - 1]?.text?.includes('Pipeline idle');
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0e14] rounded-2xl overflow-hidden font-mono border border-slate-800/60 shadow-[0_18px_40px_rgba(15,23,42,0.14)]">
+    <div className="relative flex flex-col h-full term-surface rounded-2xl overflow-hidden font-mono border border-slate-800/70 shadow-[0_18px_44px_rgba(2,6,23,0.28)]">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 h-11 bg-[#10151d] border-b border-slate-800/70 shrink-0">
+      <div className="relative z-10 flex items-center justify-between px-4 h-11 term-header border-b border-slate-800/80 shrink-0">
         <div className="flex items-center gap-2.5">
-          <Terminal className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-slate-400 text-[10px] font-semibold tracking-[0.18em] uppercase font-sans">
+          <span className="flex items-center justify-center w-5 h-5 rounded-md bg-slate-700/40 border border-slate-600/40">
+            <Terminal className="w-3 h-3 text-sky-300/80" />
+          </span>
+          <span className="text-slate-300 text-[10px] font-bold tracking-[0.18em] uppercase font-sans">
             Agent Console
           </span>
         </div>
@@ -117,10 +119,10 @@ const AgentConsole = ({ logs }) => {
             </span>
           )}
           <span className="w-px h-3 bg-slate-700/70" />
-          <div className="flex items-center gap-1.5">
+          <div className={`flex items-center gap-1.5 rounded-full pl-1.5 pr-2 py-0.5 border ${isIdle ? 'border-slate-700/60 bg-slate-800/40' : 'border-emerald-500/30 bg-emerald-500/10'}`}>
             {/* The only looping element in this panel: it means the stream is live. */}
             <span className={`w-1.5 h-1.5 rounded-full ${isIdle ? 'bg-slate-600' : 'bg-emerald-400 loop-beacon'}`} />
-            <span className={`text-[9px] font-bold tracking-[0.16em] font-sans ${isIdle ? 'text-slate-600' : 'text-emerald-400'}`}>
+            <span className={`text-[9px] font-bold tracking-[0.16em] font-sans ${isIdle ? 'text-slate-500' : 'text-emerald-300'}`}>
               {isIdle ? 'IDLE' : 'LIVE'}
             </span>
           </div>
@@ -128,7 +130,7 @@ const AgentConsole = ({ logs }) => {
       </div>
 
       {/* Body */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2.5 py-2.5 dark-scrollbar" role="log" aria-live="polite" aria-label="Agent activity log">
+      <div ref={scrollRef} className="relative z-10 flex-1 overflow-y-auto px-2.5 py-2 dark-scrollbar" role="log" aria-live="polite" aria-label="Agent activity log">
         {logs.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 enter-fade">
             <div className="w-10 h-10 rounded-xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center mb-3">
@@ -138,7 +140,7 @@ const AgentConsole = ({ logs }) => {
             <p className="text-slate-600 text-[10px] font-sans mt-1">Agent output will stream here in real time</p>
           </div>
         ) : (
-          <div className="space-y-px">
+          <div className="space-y-0.5">
             {logs.map((log, i) => {
               const { tags, body } = parseLog(log.text);
               const style = styleForLog(log, tags);
@@ -146,7 +148,7 @@ const AgentConsole = ({ logs }) => {
               return (
                 <div
                   key={i}
-                  className="flex items-stretch gap-2.5 rounded-md px-1.5 py-[5px] enter-slide hover:bg-white/[0.05] transition-colors"
+                  className="flex items-stretch gap-2.5 rounded-md pl-1.5 pr-2 py-[5px] enter-slide hover:bg-white/[0.04] transition-colors"
                 >
                   {/* Some backend lines carry no timestamp; leave the column
                       blank rather than printing a placeholder clock. */}
@@ -170,7 +172,7 @@ const AgentConsole = ({ logs }) => {
       </div>
 
       {/* Footer */}
-      <div className="px-4 h-8 bg-[#10151d] border-t border-slate-800/70 text-[9px] text-slate-500 flex items-center justify-between shrink-0 font-sans">
+      <div className="relative z-10 px-4 h-8 term-header border-t border-slate-800/80 text-[9px] text-slate-500 flex items-center justify-between shrink-0 font-sans">
         <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq Llama 3.3</span>
         <span className="text-slate-600 shrink-0 ml-3">v2.0</span>
       </div>
@@ -242,7 +244,7 @@ const Metric = ({ label, value, tone = 'text-[#001f3f]' }) => (
 // ═══════════════════════════════════════════════════
 const DocVerdictOverlay = ({ ok }) => (
   <div
-    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none verdict-wash ${ok ? 'bg-emerald-500/12' : 'bg-rose-500/12'}`}
+    className={`absolute inset-0 flex flex-col items-center justify-center gap-1 pointer-events-none verdict-flash ${ok ? 'bg-emerald-500/25' : 'bg-rose-500/25'}`}
     role="status"
     aria-label={ok ? 'Document verified' : 'Document flagged'}
   >
@@ -1452,10 +1454,10 @@ const KYCPortal = () => {
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPreview(); } }}
                         aria-label={`Enlarge ${doc.label}`}
-                        className="group focusable relative h-[68px] bg-slate-50 flex items-center justify-center overflow-hidden cursor-pointer shrink-0 border-b border-slate-100"
+                        className="group focusable relative h-[74px] bg-gradient-to-b from-slate-50 to-slate-100 flex items-center justify-center overflow-hidden cursor-pointer shrink-0 border-b border-slate-100 p-1.5"
                       >
                         {preview ? (
-                          <img src={preview} alt={`${doc.label} preview`} className="h-full w-full object-contain" />
+                          <img src={preview} alt={`${doc.label} preview`} className="max-h-full max-w-full object-contain rounded shadow-sm" />
                         ) : (
                           <div className="flex flex-col items-center text-slate-400">
                             <FileText className="w-5 h-5" />
@@ -1486,36 +1488,52 @@ const KYCPortal = () => {
                     )}
 
                     {/* Extracted fields — fill in when this document completes */}
-                    <div className="flex-1 min-h-0 overflow-auto custom-scrollbar p-1.5">
+                    <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                       {fields.length ? (
-                        <div className="space-y-1 enter-fade">
-                          <div className="flex items-center justify-between gap-1 px-0.5 pb-1 mb-0.5 border-b border-slate-100">
+                        <div className="enter-fade">
+                          {/* Section header stays pinned while the fields scroll. */}
+                          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm flex items-center justify-between gap-1.5 px-2.5 py-1.5 border-b border-slate-100">
                             <span className="label">Extracted</span>
-                            <span className="flex items-center gap-1.5 shrink-0">
+                            <span className="flex items-center gap-2 shrink-0">
                               {docMs != null && (
                                 <span className="inline-flex items-center gap-0.5 text-[8px] font-semibold text-slate-400 tabular" title="Processing time for this document">
                                   <Clock className="w-2.5 h-2.5" />{formatSeconds(docMs)}
                                 </span>
                               )}
-                              {confidence && <span className="text-[8px] font-bold text-emerald-600 tabular">{confidence}%</span>}
+                              {confidence != null && (
+                                <span
+                                  className={`inline-flex items-center text-[8px] font-bold tabular px-1.5 py-0.5 rounded-full
+                                    ${confidence >= 90 ? 'bg-emerald-50 text-emerald-600'
+                                      : confidence >= 70 ? 'bg-amber-50 text-amber-600'
+                                        : 'bg-rose-50 text-rose-600'}`}
+                                  title="Extraction confidence"
+                                >
+                                  {confidence}%
+                                </span>
+                              )}
                             </span>
                           </div>
-                          {fields.map(([k, v]) => (
-                            <div key={k} className="px-1.5 py-1 rounded-md bg-slate-50/70 border border-slate-100">
-                              <span className="block text-[8px] font-bold uppercase tracking-wide text-slate-400 truncate">{k.replace(/_/g, ' ')}</span>
-                              <span className="block text-[10px] font-semibold font-mono text-slate-800 truncate" title={String(v)}>{v}</span>
-                            </div>
-                          ))}
+                          {/* Divider-separated readout — cleaner than boxed rows. */}
+                          <dl className="px-2.5 divide-y divide-slate-100">
+                            {fields.map(([k, v]) => (
+                              <div key={k} className="py-1.5">
+                                <dt className="text-[8px] font-bold uppercase tracking-[0.08em] text-slate-400 truncate">{k.replace(/_/g, ' ')}</dt>
+                                <dd className="text-[11px] font-semibold font-mono text-slate-800 truncate mt-0.5" title={String(v)}>{v}</dd>
+                              </div>
+                            ))}
+                          </dl>
                         </div>
                       ) : isScanning ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center px-2">
-                          <Loader2 className="w-4 h-4 text-[#F15840] loop-spin mb-1.5" />
-                          <span className="text-[9px] font-semibold text-slate-500">Extracting…</span>
+                        <div className="h-full flex flex-col items-center justify-center text-center px-2 gap-1.5">
+                          <Loader2 className="w-4 h-4 text-[#F15840] loop-spin" />
+                          <span className="text-[9px] font-semibold text-slate-500">Extracting fields…</span>
                         </div>
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center px-2">
-                          <FileText className="w-4 h-4 text-slate-300 mb-1" />
-                          <span className="text-[9px] font-medium text-slate-400">Awaiting data</span>
+                        <div className="h-full flex flex-col items-center justify-center text-center px-2 gap-1">
+                          <div className="w-8 h-8 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5 text-slate-300" />
+                          </div>
+                          <span className="text-[9px] font-medium text-slate-400 mt-0.5">Awaiting data</span>
                         </div>
                       )}
                     </div>

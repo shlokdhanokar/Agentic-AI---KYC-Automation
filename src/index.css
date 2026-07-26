@@ -164,6 +164,27 @@
   -webkit-mask-image: radial-gradient(760px 620px at 50% 45%, #000 20%, transparent 78%);
 }
 
+/* Agent console — a deep terminal surface with a faint cyan glow up top and a
+   subtle vignette, so the panel reads as lit rather than a flat black box. */
+.term-surface {
+  background:
+    radial-gradient(130% 90% at 50% -12%, rgba(56, 189, 248, 0.07), transparent 58%),
+    radial-gradient(100% 100% at 50% 120%, rgba(139, 92, 246, 0.05), transparent 60%),
+    linear-gradient(180deg, #0b1119 0%, #0a0e14 46%);
+}
+.term-header {
+  background: linear-gradient(180deg, #131a24 0%, #10151d 100%);
+}
+/* Hairline highlight along the top edge — the sheen premium panels have. */
+.term-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.22), transparent);
+  pointer-events: none;
+}
+
 /* ------------------------------------------------------------ 4. COMPONENTS */
 
 /* Uppercase micro-label — used for every section heading and field key. */
@@ -221,12 +242,20 @@ button:focus-visible {
    documents complete sequentially, these fire one card at a time on their own. */
 @keyframes verdict-pop  { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
 @keyframes verdict-ring { 0% { transform: scale(0.7); opacity: 0.65; } 100% { transform: scale(2.1); opacity: 0; } }
-@keyframes verdict-wash { from { opacity: 0; } to { opacity: 1; } }
 @keyframes verdict-label{ 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+/* The stamp is a moment, not a permanent sticker: it fades in over the scan,
+   holds, then fades out to reveal the clean document. The header chip and the
+   lane's green border remain as the persistent "verified" markers. */
+@keyframes verdict-flash {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  66%  { opacity: 1; }
+  100% { opacity: 0; }
+}
 
 .verdict-pop   { animation: verdict-pop   var(--dur-3) var(--ease-pop) both; }
 .verdict-ring  { animation: verdict-ring  var(--beat) var(--ease-out) both; }        /* one-shot: `both`, not infinite */
-.verdict-wash  { animation: verdict-wash  var(--dur-2) var(--ease-out) both; }
+.verdict-flash { animation: verdict-flash 2.2s var(--ease-out) forwards; }
 .verdict-label { animation: verdict-label var(--dur-3) var(--ease-out) both; animation-delay: 110ms; }
 
 /* ------------------------------------------------------------ 5. SCROLLBARS */
