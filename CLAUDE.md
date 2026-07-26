@@ -26,7 +26,7 @@ Backend (Flask + Celery + Redis):
 - **Backend → Render**, built from `Dockerfile` (`agentic-ai-kyc-automation.onrender.com`; free tier, so ~35s cold-start after idle).
 
 Consequences to keep in mind:
-- **The `Dockerfile` copies runtime assets one by one** (`COPY demo-passport.png .`, the CSVs, the xlsx). Any new file the backend reads at runtime must be added to the `Dockerfile` or it simply won't exist on Render — even though it's committed to git. This has caused real bugs.
+- **The `Dockerfile` copies runtime assets by directory** (`COPY data/ ./data/`, `COPY assets/ ./assets/`). New reference data or demo files dropped into `data/` or `assets/demo/` are picked up automatically, but a **new top-level file** the backend reads at runtime must be added to the `Dockerfile` explicitly, or it won't exist on Render even though it's committed. This has caused real bugs.
 - Prefer branch/preview deploys for risky UI work; the live site has a recruiter-facing entry point.
 
 ## Environment / credentials
@@ -43,8 +43,8 @@ The pipeline is a single Celery task, `process_document_with_logs` (there is an 
 2. `extract_ocr_text` → Azure Form Recognizer (`prebuilt-read`).
 3. `determine_document_type` → keyword scoring over the OCR text → `passport` / `driving_license` / `identity_card`.
 4. `extract_structured_fields` → **Groq Llama 3.3 70B** in JSON mode, with a per-doc-type field schema and retry/backoff.
-5. `verify_extracted_data` → cross-references against `DATABASE_DOCUMENTS.xlsx` (per-doc-type sheets).
-6. OFAC screening → matches the extracted name against `OFAC_SDN_LIST.csv`.
+5. `verify_extracted_data` → cross-references against `data/DATABASE_DOCUMENTS.xlsx` (per-doc-type sheets).
+6. OFAC screening → matches the extracted name against `data/OFAC_SDN_LIST.csv`.
 7. Final record saved to Redis.
 
 `database.py` is a thin Redis wrapper — it is the **single source of state** (document status, log lines, final records, alerts). There is no SQL DB; the "database" the agent cross-references is the Excel file, and results live in Redis.

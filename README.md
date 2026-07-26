@@ -127,11 +127,13 @@ vercel.json            Vercel static-build config
 
 src/App.js             The entire React dashboard (single-file SPA)
 src/index.css          Design tokens, component classes, and the motion system
-public/index.html      HTML shell + Tailwind (Play CDN) configuration
+public/                HTML shell (Tailwind Play CDN config) + demo thumbnails
 
-DATABASE_DOCUMENTS.xlsx  Reference customer records the Database Agent checks against
-OFAC_SDN_LIST.csv        Sanctions watchlist the Compliance Agent screens against
-demo-*.png               Sample documents served by the "Run Demo" flow
+data/                  Reference data read by the backend
+  DATABASE_DOCUMENTS.xlsx   Customer records the Database Agent checks against
+  OFAC_SDN_LIST.csv         Sanctions watchlist the Compliance Agent screens against
+assets/demo/           Sample documents served by the "Run Demo" flow
+scripts/               One-off utilities (e.g. regenerating the OFAC list)
 ```
 
 ## License

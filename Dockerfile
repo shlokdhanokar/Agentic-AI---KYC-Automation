@@ -19,16 +19,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 COPY database.py .
 COPY start.sh .
-COPY DATABASE_DOCUMENTS.xlsx .
-COPY OFAC_SDN_LIST.csv .
-COPY ["Philip DL.PNG", "."]
 
-# Demo documents served by /upload-demo. Without these three, the endpoint's
-# missing-file fallback routes every document type to "Philip DL.PNG", so the
-# passport and ID card both process as the same driving license.
-COPY demo-passport.png .
-COPY demo-dl.png .
-COPY demo-id.png .
+# Reference data (customer records + OFAC watchlist) and the demo documents
+# served by /upload-demo. These directories MUST be copied — the app reads them
+# at runtime from data/ and assets/demo/, and a missing demo file makes
+# /upload-demo fall back to a single driving licence for every document type.
+COPY data/ ./data/
+COPY assets/ ./assets/
 
 # Create uploads directory (used by the Flask app)
 RUN mkdir -p uploads

@@ -56,7 +56,9 @@ if not groq_api_key:
 # Database file path
 import os
 base_dir = os.path.dirname(os.path.abspath(__file__))
-DATABASE_FILE = os.path.join(base_dir, "DATABASE_DOCUMENTS.xlsx")
+DATA_DIR = os.path.join(base_dir, "data")           # reference records + watchlist
+DEMO_DIR = os.path.join(base_dir, "assets", "demo")  # sample documents for the demo
+DATABASE_FILE = os.path.join(DATA_DIR, "DATABASE_DOCUMENTS.xlsx")
 
 
 # === HELPER FUNCTIONS ===
@@ -577,11 +579,11 @@ def upload_demo():
     }
     
     demo_filename = demo_files.get(doc_type, 'demo-dl.png')
-    demo_path = os.path.join(app.root_path, demo_filename)
-    
+    demo_path = os.path.join(DEMO_DIR, demo_filename)
+
     if not os.path.exists(demo_path):
         # Fallback to the old file if needed
-        demo_path = os.path.join(app.root_path, "Philip DL.PNG")
+        demo_path = os.path.join(DEMO_DIR, "Philip DL.PNG")
         demo_filename = "Philip DL.PNG"
         if not os.path.exists(demo_path):
             return jsonify({'success': False, 'message': 'Demo file not found on server'}), 404
@@ -772,9 +774,7 @@ def process_document_with_logs(file_path, document_id):
             
             import time
             time.sleep(1.5) # Simulate API latency
-            import os
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            ofac_path = os.path.join(base_dir, 'OFAC_SDN_LIST.csv')
+            ofac_path = os.path.join(DATA_DIR, 'OFAC_SDN_LIST.csv')
             
             # Load the newly generated CSV list
             try:

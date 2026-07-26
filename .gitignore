@@ -33,7 +33,9 @@ npm-debug.log*
 # ── Scratch / one-off dev scripts (never commit these) ──
 # Ad-hoc migration and patch scripts used while iterating.
 patch_*.py
+fix.py
 fix_*.py
+update_*.py
 refactor_*.py
 rewrite_*.py
 restructure_*.py

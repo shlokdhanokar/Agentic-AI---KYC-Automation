@@ -1,5 +1,9 @@
 import csv
+import os
 import random
+
+# Write into the repo's data/ directory regardless of where this is run from.
+OUTPUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "OFAC_SDN_LIST.csv")
 
 # Real and realistic mock sanctioned entities
 entries = [
@@ -44,7 +48,7 @@ while len(entries) < 100:
 # We'll just stick to 100 bad actors.
 
 # Save to CSV
-with open("OFAC_SDN_LIST.csv", "w", newline="", encoding="utf-8") as f:
+with open(OUTPUT, "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
     writer.writerow(["Primary_Name", "AKA", "Crime_Description", "Category"])
     writer.writerows(entries)
