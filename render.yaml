@@ -4,6 +4,11 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
+      # Set the actual values in the Render dashboard (sync: false = not stored here).
+      - key: GROQ_API_KEY            # required — app.py raises at import without it
+        sync: false
+      - key: REDIS_URL               # required — Celery broker/backend + state store
+        sync: false
       - key: AZURE_BLOB_CONNECTION_STRING
         sync: false
       - key: AZURE_BLOB_CONTAINER_NAME
@@ -11,6 +16,4 @@ services:
       - key: AZURE_FORM_RECOGNIZER_ENDPOINT
         sync: false
       - key: AZURE_FORM_RECOGNIZER_KEY
-        sync: false
-      - key: GEMINI_API_KEY
         sync: false

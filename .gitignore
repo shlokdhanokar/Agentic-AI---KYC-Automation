@@ -1,7 +1,58 @@
+# ── Dependencies & build output ──
 node_modules/
+build/
+/.pnp
+.pnp.js
+
+# ── Secrets & environment ──
 .env
+.env.local
+.env.*.local
+
+# ── Python ──
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+venv/
+
+# ── Runtime data ──
 uploads/
-build/
 extracted_passport_details.xlsx
+
+# ── Editor / OS ──
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── Logs ──
+*.log
+npm-debug.log*
+
+# ── Scratch / one-off dev scripts (never commit these) ──
+# Ad-hoc migration and patch scripts used while iterating.
+patch_*.py
+fix_*.py
+refactor_*.py
+rewrite_*.py
+restructure_*.py
+apply_*.py
+import_*.py
+add_*.py
+remove_*.py
+replace_*.py
+replace_*.js
+full_rewrite.py
+test_gemini.py
+
+# ── Scratch data & media ──
+alt.csv
+sdn.csv
+*.mp4
+*.zip
+*.docx
+Screenshot *.png
+
+# ── Archived junk (kept locally, out of the repo) ──
+trash/
