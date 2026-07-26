@@ -1176,9 +1176,9 @@ const KYCPortal = () => {
   //  RENDER: MAIN DASHBOARD
   // ═══════════════════════════════════════════════
   const documents = [
-    { key: 'passport', label: 'Passport', icon: Plane, file: passportFile, setter: setPassportFile, accent: 'from-sky-500 to-blue-600' },
-    { key: 'license', label: 'License', icon: Car, file: licenseFile, setter: setLicenseFile, accent: 'from-emerald-500 to-teal-600' },
-    { key: 'idCard', label: 'ID Card', icon: CreditCard, file: idCardFile, setter: setIdCardFile, accent: 'from-violet-500 to-purple-600' },
+    { key: 'passport', label: 'Passport', icon: Plane, file: passportFile, setter: setPassportFile, accent: 'from-sky-500 to-blue-600', duotone: 'from-sky-500 via-blue-700 to-[#001f3f]' },
+    { key: 'license', label: 'License', icon: Car, file: licenseFile, setter: setLicenseFile, accent: 'from-emerald-500 to-teal-600', duotone: 'from-emerald-500 via-teal-700 to-[#00352b]' },
+    { key: 'idCard', label: 'ID Card', icon: CreditCard, file: idCardFile, setter: setIdCardFile, accent: 'from-violet-500 to-purple-600', duotone: 'from-violet-500 via-purple-700 to-[#1e1b4b]' },
   ];
   const selectedCount = [passportFile, licenseFile, idCardFile].filter(Boolean).length;
 
@@ -1428,23 +1428,24 @@ const KYCPortal = () => {
                     className={`flex-1 min-w-0 flex flex-col min-h-0 rounded-2xl overflow-hidden border bg-white shadow-soft transition-colors
                       ${isDocOk ? 'border-emerald-300' : isDocBad ? 'border-rose-300' : 'border-slate-200/70'}`}
                   >
-                    {/* Lane header — clean white bar with a colour accent line
-                        and icon tile, rather than a fully saturated banner. */}
-                    <div className="relative bg-white px-2.5 h-10 flex items-center justify-between gap-1.5 shrink-0 border-b border-slate-100">
-                      <span className={`absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r ${doc.accent}`} aria-hidden="true" />
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-6 h-6 rounded-lg bg-gradient-to-br ${doc.accent} flex items-center justify-center shadow-sm shrink-0`}>
+                    {/* Lane header — duotone banner fading from the document
+                        colour into deep navy, with a glass sheen on top. */}
+                    <div className={`relative h-10 px-2.5 flex items-center justify-between gap-1.5 shrink-0 overflow-hidden bg-gradient-to-r ${doc.duotone}`}>
+                      {/* Sheen: a soft highlight across the upper half. */}
+                      <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" aria-hidden="true" />
+                      <div className="relative flex items-center gap-2 min-w-0">
+                        <span className="w-6 h-6 rounded-lg bg-white/15 border border-white/25 backdrop-blur-sm flex items-center justify-center shrink-0">
                           <DocIcon className="w-3.5 h-3.5 text-white" />
                         </span>
-                        <span className="text-[#001f3f] font-bold text-[11px] tracking-tight truncate">{doc.label}</span>
+                        <span className="text-white font-bold text-[11px] tracking-tight truncate drop-shadow-sm">{doc.label}</span>
                       </div>
                       {isDocOk && (
-                        <span className="chip chip-ok enter-pop shrink-0">
+                        <span className="relative inline-flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-white bg-white/20 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
                           <Check className="w-2.5 h-2.5" /> Verified
                         </span>
                       )}
                       {isDocBad && (
-                        <span className="chip chip-bad enter-pop shrink-0">
+                        <span className="relative inline-flex items-center gap-1 text-[8px] font-extrabold uppercase tracking-wider text-white bg-rose-500/40 border border-white/30 rounded-full px-1.5 py-0.5 enter-pop shrink-0">
                           <X className="w-2.5 h-2.5" /> Flagged
                         </span>
                       )}
