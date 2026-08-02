@@ -19,7 +19,6 @@
 </p>
 
 ---
-
 ## Overview
 
 Upload a passport, driving licence and ID card and the pipeline runs each document through four cooperating agents, streaming their progress to the dashboard in real time and returning an auditable **APPROVED / REJECTED** decision.
