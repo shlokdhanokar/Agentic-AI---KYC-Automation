@@ -15,7 +15,7 @@
   <img alt="Flask" src="https://img.shields.io/badge/Flask-3-000000?logo=flask&logoColor=white">
   <img alt="Celery" src="https://img.shields.io/badge/Celery-Redis-37814A?logo=celery&logoColor=white">
   <img alt="Azure" src="https://img.shields.io/badge/Azure-Form%20Recognizer-0078D4?logo=microsoftazure&logoColor=white">
-  <img alt="Groq" src="https://img.shields.io/badge/Groq-Llama%203.3%2070B-F55036">
+  <img alt="Groq" src="https://img.shields.io/badge/Groq-GPT--OSS%20120B-F55036">
 </p>
 
 ---
@@ -29,7 +29,7 @@ Upload a passport, driving licence and ID card and the pipeline runs each docume
 
 ## What it does
 
-- **Vision Agent** — stores the document in Azure Blob, runs Azure Form Recognizer OCR, classifies the document type, and extracts structured fields with Groq Llama 3.3 70B.
+- **Vision Agent** — stores the document in Azure Blob, runs Azure Form Recognizer OCR, classifies the document type, and extracts structured fields with Groq GPT-OSS 120B.
 - **Database Agent** — cross-references the extracted identity against the customer record store.
 - **Compliance Agent** — screens the applicant against the OFAC sanctions (SDN) watchlist.
 - **Orchestrator Agent** — coordinates the run, synthesises the final KYC decision, and persists the outcome.
@@ -51,7 +51,7 @@ The dashboard shows the live agent console (colour-coded by agent), a per-docume
                         │ per document, in sequence
       ┌─────────────────┼──────────────────────────────┐
       ▼                 ▼               ▼                ▼
-  Azure Blob      Form Recognizer   Groq Llama 3.3   OFAC SDN list
+  Azure Blob      Form Recognizer   Groq GPT-OSS     OFAC SDN list
   (storage)       (OCR)             (extraction)     + Excel records
 ```
 
@@ -66,7 +66,7 @@ For a deeper tour of the code (state flow, the motion system, deployment gotchas
 | Frontend   | React 19 (Create React App), Tailwind CSS, lucide-react |
 | Backend    | Flask, Celery, Redis |
 | OCR        | Azure AI Document Intelligence (Form Recognizer) |
-| Extraction | Groq — Llama 3.3 70B (JSON mode) |
+| Extraction | Groq — GPT-OSS 120B (JSON mode; model set by `GROQ_MODEL`) |
 | Storage    | Azure Blob Storage; Redis (state); Excel (reference records) |
 | Deploy     | Vercel (frontend) · Render (backend, Docker) |
 

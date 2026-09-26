@@ -12,6 +12,16 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 
 const now = () => new Date().toLocaleTimeString('en-US', { hour12: false });
 
+// Parse a backend response as JSON. A crashed backend returns an HTML error
+// page, so surface the HTTP status instead of an opaque JSON parse failure.
+const readJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    throw new Error(`backend returned HTTP ${res.status}`);
+  }
+};
+
 // Run clock, e.g. 01:07.4 — tabular digits keep it from jittering as it ticks.
 const formatDuration = (ms) => {
   const total = Math.max(0, ms || 0);
@@ -173,7 +183,7 @@ const AgentConsole = ({ logs }) => {
 
       {/* Footer */}
       <div className="relative z-10 px-4 h-8 term-header border-t border-slate-800/80 text-[9px] text-slate-500 flex items-center justify-between shrink-0 font-sans">
-        <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq Llama 3.3</span>
+        <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq GPT-OSS</span>
         <span className="text-slate-600 shrink-0 ml-3">v2.0</span>
       </div>
     </div>
@@ -512,7 +522,7 @@ const AGENTS = [
     id: 'vision', stage: 'agent1', index: 1, name: 'Vision Agent', short: 'Vision OCR',
     icon: ScanLine, accent: 'sky',
     role: 'Reads the document, classifies its type and extracts structured fields from the raw OCR text.',
-    tools: ['Azure Blob', 'Form Recognizer', 'Groq Llama 3.3'],
+    tools: ['Azure Blob', 'Form Recognizer', 'Groq GPT-OSS'],
     input: 'Document image', output: 'Structured fields + type',
     tool: { icon: Cloud, label: 'Azure Blob · Form Recognizer' },
   },
@@ -536,9 +546,9 @@ const AGENTS = [
     id: 'orchestrator', stage: 'kycComplete', index: 4, name: 'Orchestrator Agent', short: 'Orchestrator',
     icon: Brain, accent: 'violet',
     role: 'Delegates to each agent, synthesises the final KYC decision and persists the outcome.',
-    tools: ['Groq Llama 3.3', 'Redis'],
+    tools: ['Groq GPT-OSS', 'Redis'],
     input: 'All agent outputs', output: 'KYC decision',
-    tool: { icon: Zap, label: 'Groq Llama 3.3 70B' },
+    tool: { icon: Zap, label: 'Groq GPT-OSS 120B' },
   },
 ];
 
@@ -606,7 +616,7 @@ const ArchitectureView = ({ agentProgressMap }) => {
         </div>
         <div className="flex items-center gap-2">
           <span className="chip chip-neutral"><Network className="w-3 h-3" /> 4 agents</span>
-          <span className="chip chip-neutral"><Cpu className="w-3 h-3" /> Groq Llama 3.3 70B</span>
+          <span className="chip chip-neutral"><Cpu className="w-3 h-3" /> Groq GPT-OSS 120B</span>
         </div>
       </div>
 
@@ -742,6 +752,9 @@ const KYCPortal = () => {
   const [agentLogs, setAgentLogs] = useState([]);
   const [uploadQueue, setUploadQueue] = useState([]);
   const [currentDocIndex, setCurrentDocIndex] = useState(-1);
+  // Labels of documents that never reached the pipeline (upload/demo request
+  // failed). A ref, not state: it is only read once, when the queue drains.
+  const failedDocsRef = useRef([]);
   const [activePollingId, setActivePollingId] = useState(null);
   const [activePollingKey, setActivePollingKey] = useState(null);
   // 'stream' when the live SSE feed is connected, 'polling' when we fell back.
@@ -783,7 +796,7 @@ const KYCPortal = () => {
           formData.append('file', item.file);
           try {
             const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-            const data = await res.json();
+            const data = await readJson(res);
             if (data.success) {
               docIdToPoll = data.documentId;
               setAgentLogs(prev => [...prev, { text: `[System] ✓ ${item.label} uploaded — Initializing agents`, time: now() }]);
@@ -791,7 +804,7 @@ const KYCPortal = () => {
               setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to upload ${item.label}: ${data.message}`, time: now(), error: true }]);
             }
           } catch (e) {
-            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error uploading ${item.label}`, time: now(), error: true }]);
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Could not upload ${item.label}: ${e.message}`, time: now(), error: true }]);
           }
         } else if (item.isDemo) {
           try {
@@ -800,14 +813,14 @@ const KYCPortal = () => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ docType: item.key })
             });
-            const data = await res.json();
+            const data = await readJson(res);
             if (data.success) {
               docIdToPoll = data.documentId;
             } else {
-              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to load demo for ${item.label}`, time: now(), error: true }]);
+              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to load demo for ${item.label}: ${data.message}`, time: now(), error: true }]);
             }
           } catch (e) {
-            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error loading demo`, time: now(), error: true }]);
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Could not load demo for ${item.label}: ${e.message}`, time: now(), error: true }]);
           }
         }
 
@@ -815,6 +828,7 @@ const KYCPortal = () => {
           setActivePollingId(docIdToPoll);
           setActivePollingKey(item.key);
         } else {
+          failedDocsRef.current.push(item.label);
           // If it failed to upload/load, just skip to the next
           setCurrentDocIndex(prev => prev + 1);
         }
@@ -825,10 +839,15 @@ const KYCPortal = () => {
       // The clock stops here: the ticking effect unmounts when `uploading`
       // goes false, so runElapsed holds the final duration (accurate to the
       // 100ms tick, which is the precision we display anyway).
+      const failed = failedDocsRef.current;
+      const total = uploadQueue.length;
       setAgentLogs(prev => {
         const hasRejection = prev.some(l => l.text.includes('KYC REJECTED'));
         const newLogs = [...prev];
-        if (!hasRejection) {
+        if (failed.length > 0) {
+          // A document that never ran cannot be approved — say so instead.
+          newLogs.push({ text: `[Orchestrator Agent] ✗ KYC INCOMPLETE — ${failed.length} of ${total} document(s) could not be processed (${failed.join(', ')})`, time: now(), error: true });
+        } else if (!hasRejection) {
           newLogs.push({ text: '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed', time: now() });
         }
         newLogs.push({ text: '[System] ✓ All documents processed. Pipeline idle.', time: now() });
@@ -980,6 +999,7 @@ const KYCPortal = () => {
 
   const initializePipeline = () => {
     setUploading(true);
+    failedDocsRef.current = [];
     setAgentProgressMap({});
     setExtractedDataMap({});
     setRunStart(Date.now());
