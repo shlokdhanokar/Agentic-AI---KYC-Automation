@@ -12,6 +12,16 @@ const API_URL = process.env.REACT_APP_API_URL || '';
 
 const now = () => new Date().toLocaleTimeString('en-US', { hour12: false });
 
+// Parse a backend response as JSON. A crashed backend returns an HTML error
+// page, so surface the HTTP status instead of an opaque JSON parse failure.
+const readJson = async (res) => {
+  try {
+    return await res.json();
+  } catch {
+    throw new Error(`backend returned HTTP ${res.status}`);
+  }
+};
+
 // Run clock, e.g. 01:07.4 — tabular digits keep it from jittering as it ticks.
 const formatDuration = (ms) => {
   const total = Math.max(0, ms || 0);
@@ -742,6 +752,9 @@ const KYCPortal = () => {
   const [agentLogs, setAgentLogs] = useState([]);
   const [uploadQueue, setUploadQueue] = useState([]);
   const [currentDocIndex, setCurrentDocIndex] = useState(-1);
+  // Labels of documents that never reached the pipeline (upload/demo request
+  // failed). A ref, not state: it is only read once, when the queue drains.
+  const failedDocsRef = useRef([]);
   const [activePollingId, setActivePollingId] = useState(null);
   const [activePollingKey, setActivePollingKey] = useState(null);
   // 'stream' when the live SSE feed is connected, 'polling' when we fell back.
@@ -783,7 +796,7 @@ const KYCPortal = () => {
           formData.append('file', item.file);
           try {
             const res = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-            const data = await res.json();
+            const data = await readJson(res);
             if (data.success) {
               docIdToPoll = data.documentId;
               setAgentLogs(prev => [...prev, { text: `[System] ✓ ${item.label} uploaded — Initializing agents`, time: now() }]);
@@ -791,7 +804,7 @@ const KYCPortal = () => {
               setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to upload ${item.label}: ${data.message}`, time: now(), error: true }]);
             }
           } catch (e) {
-            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error uploading ${item.label}`, time: now(), error: true }]);
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Could not upload ${item.label}: ${e.message}`, time: now(), error: true }]);
           }
         } else if (item.isDemo) {
           try {
@@ -800,14 +813,14 @@ const KYCPortal = () => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ docType: item.key })
             });
-            const data = await res.json();
+            const data = await readJson(res);
             if (data.success) {
               docIdToPoll = data.documentId;
             } else {
-              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to load demo for ${item.label}`, time: now(), error: true }]);
+              setAgentLogs(prev => [...prev, { text: `[Error] ✗ Failed to load demo for ${item.label}: ${data.message}`, time: now(), error: true }]);
             }
           } catch (e) {
-            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Network error loading demo`, time: now(), error: true }]);
+            setAgentLogs(prev => [...prev, { text: `[Error] ✗ Could not load demo for ${item.label}: ${e.message}`, time: now(), error: true }]);
           }
         }
 
@@ -815,6 +828,7 @@ const KYCPortal = () => {
           setActivePollingId(docIdToPoll);
           setActivePollingKey(item.key);
         } else {
+          failedDocsRef.current.push(item.label);
           // If it failed to upload/load, just skip to the next
           setCurrentDocIndex(prev => prev + 1);
         }
@@ -825,10 +839,15 @@ const KYCPortal = () => {
       // The clock stops here: the ticking effect unmounts when `uploading`
       // goes false, so runElapsed holds the final duration (accurate to the
       // 100ms tick, which is the precision we display anyway).
+      const failed = failedDocsRef.current;
+      const total = uploadQueue.length;
       setAgentLogs(prev => {
         const hasRejection = prev.some(l => l.text.includes('KYC REJECTED'));
         const newLogs = [...prev];
-        if (!hasRejection) {
+        if (failed.length > 0) {
+          // A document that never ran cannot be approved — say so instead.
+          newLogs.push({ text: `[Orchestrator Agent] ✗ KYC INCOMPLETE — ${failed.length} of ${total} document(s) could not be processed (${failed.join(', ')})`, time: now(), error: true });
+        } else if (!hasRejection) {
           newLogs.push({ text: '[Orchestrator Agent] ✓ KYC APPROVED — All checks passed', time: now() });
         }
         newLogs.push({ text: '[System] ✓ All documents processed. Pipeline idle.', time: now() });
@@ -980,6 +999,7 @@ const KYCPortal = () => {
 
   const initializePipeline = () => {
     setUploading(true);
+    failedDocsRef.current = [];
     setAgentProgressMap({});
     setExtractedDataMap({});
     setRunStart(Date.now());
