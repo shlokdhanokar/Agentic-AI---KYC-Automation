@@ -52,6 +52,12 @@ form_recognizer_key = os.environ.get("AZURE_FORM_RECOGNIZER_KEY")
 groq_api_key = os.environ.get('GROQ_API_KEY')
 if not groq_api_key:
     raise ValueError("GROQ_API_KEY is not set in the environment variables.")
+# Groq retires models (llama-3.3-70b-versatile was shut down Aug 2026), so the
+# model is overridable via env: swapping it is a Render setting, not a deploy.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+# gpt-oss is a reasoning model; low effort keeps extraction fast and stops
+# reasoning tokens from eating the completion budget.
+GROQ_EXTRA = {"reasoning_effort": "low"} if GROQ_MODEL.startswith("openai/gpt-oss") else {}
 
 # Database file path
 import os
@@ -268,9 +274,10 @@ OCR Text:
                         "content": prompt
                     }
                 ],
-                model="llama-3.3-70b-versatile",
+                model=GROQ_MODEL,
                 temperature=0.2,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                extra_body=GROQ_EXTRA
             )
             gpt_response = chat_completion.choices[0].message.content
             break # Success, break out of retry loop
@@ -986,9 +993,10 @@ User Question: {query}
                 {"role": "system", "content": "You are a professional, highly precise KYC verification assistant. Keep your answers concise, direct, and factual based only on the provided text."},
                 {"role": "user", "content": prompt}
             ],
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             temperature=0.1,
-            max_tokens=256
+            max_tokens=1024,  # headroom for reasoning tokens; the answer itself stays short
+            extra_body=GROQ_EXTRA
         )
         answer = response.choices[0].message.content.strip()
         add_log(document_id, f"[Human Agent] {query}")

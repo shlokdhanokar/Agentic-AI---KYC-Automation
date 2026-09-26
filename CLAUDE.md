@@ -31,7 +31,7 @@ Consequences to keep in mind:
 
 ## Environment / credentials
 
-`.env` (git-ignored) holds Azure + Redis config. Notable mismatch: the code path uses **Groq** (`GROQ_API_KEY`, Llama 3.3 70B) for extraction and chat, but local `.env` only carries `GEMINI_API_KEY`. `GROQ_API_KEY` must be set in the environment (and on Render). `google-genai` in `requirements.txt` is a leftover; the active code uses Groq.
+`.env` (git-ignored) holds Azure + Redis config. Notable mismatch: the code path uses **Groq** (`GROQ_API_KEY`, `openai/gpt-oss-120b` by default, overridable via `GROQ_MODEL`) for extraction and chat, but local `.env` only carries `GEMINI_API_KEY`. `GROQ_API_KEY` must be set in the environment (and on Render). `google-genai` in `requirements.txt` is a leftover; the active code uses Groq.
 
 Required: `GROQ_API_KEY`, `AZURE_BLOB_CONNECTION_STRING`, `AZURE_BLOB_CONTAINER_NAME`, `AZURE_FORM_RECOGNIZER_ENDPOINT`, `AZURE_FORM_RECOGNIZER_KEY`, `REDIS_URL`.
 
@@ -42,7 +42,7 @@ The pipeline is a single Celery task, `process_document_with_logs` (there is an 
 1. `upload_to_blob` → Azure Blob Storage (unique per-upload blob name + SAS URL).
 2. `extract_ocr_text` → Azure Form Recognizer (`prebuilt-read`).
 3. `determine_document_type` → keyword scoring over the OCR text → `passport` / `driving_license` / `identity_card`.
-4. `extract_structured_fields` → **Groq Llama 3.3 70B** in JSON mode, with a per-doc-type field schema and retry/backoff.
+4. `extract_structured_fields` → **Groq (`GROQ_MODEL`, default `openai/gpt-oss-120b`)** in JSON mode, with a per-doc-type field schema and retry/backoff.
 5. `verify_extracted_data` → cross-references against `data/DATABASE_DOCUMENTS.xlsx` (per-doc-type sheets).
 6. OFAC screening → matches the extracted name against `data/OFAC_SDN_LIST.csv`.
 7. Final record saved to Redis.

@@ -183,7 +183,7 @@ const AgentConsole = ({ logs }) => {
 
       {/* Footer */}
       <div className="relative z-10 px-4 h-8 term-header border-t border-slate-800/80 text-[9px] text-slate-500 flex items-center justify-between shrink-0 font-sans">
-        <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq Llama 3.3</span>
+        <span className="tracking-wide truncate">Azure Blob Storage · Form Recognizer · Groq GPT-OSS</span>
         <span className="text-slate-600 shrink-0 ml-3">v2.0</span>
       </div>
     </div>
@@ -522,7 +522,7 @@ const AGENTS = [
     id: 'vision', stage: 'agent1', index: 1, name: 'Vision Agent', short: 'Vision OCR',
     icon: ScanLine, accent: 'sky',
     role: 'Reads the document, classifies its type and extracts structured fields from the raw OCR text.',
-    tools: ['Azure Blob', 'Form Recognizer', 'Groq Llama 3.3'],
+    tools: ['Azure Blob', 'Form Recognizer', 'Groq GPT-OSS'],
     input: 'Document image', output: 'Structured fields + type',
     tool: { icon: Cloud, label: 'Azure Blob · Form Recognizer' },
   },
@@ -546,9 +546,9 @@ const AGENTS = [
     id: 'orchestrator', stage: 'kycComplete', index: 4, name: 'Orchestrator Agent', short: 'Orchestrator',
     icon: Brain, accent: 'violet',
     role: 'Delegates to each agent, synthesises the final KYC decision and persists the outcome.',
-    tools: ['Groq Llama 3.3', 'Redis'],
+    tools: ['Groq GPT-OSS', 'Redis'],
     input: 'All agent outputs', output: 'KYC decision',
-    tool: { icon: Zap, label: 'Groq Llama 3.3 70B' },
+    tool: { icon: Zap, label: 'Groq GPT-OSS 120B' },
   },
 ];
 
@@ -616,7 +616,7 @@ const ArchitectureView = ({ agentProgressMap }) => {
         </div>
         <div className="flex items-center gap-2">
           <span className="chip chip-neutral"><Network className="w-3 h-3" /> 4 agents</span>
-          <span className="chip chip-neutral"><Cpu className="w-3 h-3" /> Groq Llama 3.3 70B</span>
+          <span className="chip chip-neutral"><Cpu className="w-3 h-3" /> Groq GPT-OSS 120B</span>
         </div>
       </div>
 
